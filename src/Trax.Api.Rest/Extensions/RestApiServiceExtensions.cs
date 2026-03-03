@@ -22,7 +22,7 @@ public static class RestApiServiceExtensions
     /// </summary>
     public static WebApplication UseTraxRestApi(
         this WebApplication app,
-        string routePrefix = "/api"
+        string routePrefix = "/trax/api"
     )
     {
         var group = app.MapGroup(routePrefix);
