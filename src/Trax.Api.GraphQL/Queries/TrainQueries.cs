@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Trax.Api.DTOs;
+using Trax.Api.Services.HealthCheck;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Mediator.Services.TrainDiscovery;
 
@@ -8,6 +9,14 @@ namespace Trax.Api.GraphQL.Queries;
 
 public class TrainQueries
 {
+    public async Task<HealthStatus> GetHealth(
+        [Service] ITraxHealthService healthService,
+        CancellationToken ct
+    )
+    {
+        return await healthService.GetHealthAsync(ct);
+    }
+
     public IReadOnlyList<TrainInfo> GetTrains([Service] ITrainDiscoveryService discoveryService)
     {
         return discoveryService

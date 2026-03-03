@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Trax.Api.Services.HealthCheck;
 
 namespace Trax.Api.Extensions;
 
@@ -10,6 +11,7 @@ public static class ApiServiceExtensions
     /// </summary>
     public static IServiceCollection AddTraxApi(this IServiceCollection services)
     {
+        services.AddScoped<ITraxHealthService, TraxHealthService>();
         return services;
     }
 }
