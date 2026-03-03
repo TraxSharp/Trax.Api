@@ -19,13 +19,24 @@ public static class RestApiServiceExtensions
 
     /// <summary>
     /// Maps all Trax REST API endpoints under the specified route prefix.
+    /// Use the optional <paramref name="configure"/> callback to apply endpoint conventions
+    /// such as authorization, rate limiting, or CORS to all Trax REST endpoints.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// app.UseTraxRestApi(configure: group => group
+    ///     .RequireAuthorization("AdminPolicy")
+    ///     .RequireRateLimiting("fixed"));
+    /// </code>
+    /// </example>
     public static WebApplication UseTraxRestApi(
         this WebApplication app,
-        string routePrefix = "/trax/api"
+        string routePrefix = "/trax/api",
+        Action<RouteGroupBuilder>? configure = null
     )
     {
         var group = app.MapGroup(routePrefix);
+        configure?.Invoke(group);
         group.MapTrainEndpoints();
         group.MapSchedulerEndpoints();
         group.MapManifestEndpoints();

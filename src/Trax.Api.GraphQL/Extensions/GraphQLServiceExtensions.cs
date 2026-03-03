@@ -30,14 +30,23 @@ public static class GraphQLServiceExtensions
     /// <summary>
     /// Maps the Trax GraphQL endpoint at the specified route prefix.
     /// Uses a named schema so it coexists with other HotChocolate schemas
-    /// in the same application.
+    /// in the same application. Use the optional <paramref name="configure"/> callback
+    /// to apply endpoint conventions such as authorization or rate limiting.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// app.UseTraxGraphQL(configure: endpoint => endpoint
+    ///     .RequireAuthorization("AdminPolicy"));
+    /// </code>
+    /// </example>
     public static WebApplication UseTraxGraphQL(
         this WebApplication app,
-        string routePrefix = "/trax/graphql"
+        string routePrefix = "/trax/graphql",
+        Action<IEndpointConventionBuilder>? configure = null
     )
     {
-        app.MapGraphQL(routePrefix, SchemaName);
+        var endpoint = app.MapGraphQL(routePrefix, SchemaName);
+        configure?.Invoke(endpoint);
         return app;
     }
 }
