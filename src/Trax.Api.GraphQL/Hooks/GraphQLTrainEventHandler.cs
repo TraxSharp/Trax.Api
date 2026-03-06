@@ -47,6 +47,7 @@ public class GraphQLTrainEventHandler : ITrainEventHandler
             "Completed" => nameof(LifecycleSubscriptions.OnTrainCompleted),
             "Failed" => nameof(LifecycleSubscriptions.OnTrainFailed),
             "Cancelled" => nameof(LifecycleSubscriptions.OnTrainCancelled),
+            "StateChanged" => nameof(LifecycleSubscriptions.OnTrainStateChanged),
             _ => null,
         };
 

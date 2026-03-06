@@ -107,6 +107,19 @@ public class GraphQLTrainEventHandlerTests
     }
 
     [Test]
+    public async Task HandleAsync_StateChanged_SendsToCorrectTopic()
+    {
+        var sender = new RecordingTopicEventSender();
+        var handler = CreateHandler(sender, enabledTrainName: "My.Train");
+        var message = CreateMessage("StateChanged", "InProgress", "My.Train");
+
+        await handler.HandleAsync(message, CancellationToken.None);
+
+        sender.Events.Should().ContainSingle();
+        sender.Events[0].Topic.Should().Be(nameof(LifecycleSubscriptions.OnTrainStateChanged));
+    }
+
+    [Test]
     public async Task HandleAsync_UnknownEventType_DoesNotSend()
     {
         var sender = new RecordingTopicEventSender();
