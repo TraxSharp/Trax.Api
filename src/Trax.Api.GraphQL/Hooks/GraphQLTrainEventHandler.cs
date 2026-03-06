@@ -4,6 +4,7 @@ using Trax.Api.DTOs;
 using Trax.Api.GraphQL.Subscriptions;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.TrainEventBroadcaster;
+using Trax.Mediator.Services.TrainDiscovery;
 
 namespace Trax.Api.GraphQL.Hooks;
 
@@ -12,23 +13,34 @@ namespace Trax.Api.GraphQL.Hooks;
 /// and forwards them to HotChocolate's in-memory subscription transport.
 /// This bridges the gap between worker processes (where trains execute)
 /// and hub processes (where GraphQL subscriptions live).
+/// Only trains decorated with <c>[TraxBroadcast]</c> have their events forwarded.
 /// </summary>
 public class GraphQLTrainEventHandler : ITrainEventHandler
 {
     private readonly ITopicEventSender _eventSender;
     private readonly ILogger<GraphQLTrainEventHandler>? _logger;
+    private readonly HashSet<string> _enabledTrains;
 
     public GraphQLTrainEventHandler(
         ITopicEventSender eventSender,
+        ITrainDiscoveryService discoveryService,
         ILogger<GraphQLTrainEventHandler>? logger = null
     )
     {
         _eventSender = eventSender;
         _logger = logger;
+        _enabledTrains = discoveryService
+            .DiscoverTrains()
+            .Where(r => r.IsBroadcastEnabled)
+            .SelectMany(r => new[] { r.ImplementationType.FullName!, r.ServiceType.FullName! })
+            .ToHashSet();
     }
 
     public async Task HandleAsync(TrainLifecycleEventMessage message, CancellationToken ct)
     {
+        if (!_enabledTrains.Contains(message.TrainName))
+            return;
+
         var topicName = message.EventType switch
         {
             "Started" => nameof(LifecycleSubscriptions.OnTrainStarted),
