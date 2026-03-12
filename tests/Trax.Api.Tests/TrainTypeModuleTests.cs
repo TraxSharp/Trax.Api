@@ -198,6 +198,7 @@ public class TrainTypeModuleTests
             IsMutation = false,
             IsBroadcastEnabled = false,
             GraphQLOperations = GraphQLOperation.Run | GraphQLOperation.Queue,
+            IsRemote = false,
         };
         var discovery = new StubDiscoveryService([reg]);
         var module = new TrainTypeModule(discovery);
@@ -723,6 +724,7 @@ public class TrainTypeModuleTests
             GraphQLDescription = description,
             GraphQLDeprecationReason = deprecationReason,
             GraphQLOperations = operations,
+            IsRemote = false,
         };
     }
 
