@@ -1,5 +1,6 @@
 using HotChocolate.Data;
 using HotChocolate.Execution.Configuration;
+using HotChocolate.Language;
 using HotChocolate.Types;
 using HotChocolate.Types.Descriptors;
 using HotChocolate.Types.Pagination;
@@ -46,14 +47,62 @@ public class QueryModelTypeModule(GraphQLConfiguration configuration) : TypeModu
             }
         }
 
-        types.Add(
-            new ObjectTypeExtension(d =>
+        // Group model registrations by namespace
+        var byNamespace = registrations.GroupBy(r => r.Attribute.Namespace);
+
+        foreach (var group in byNamespace)
+        {
+            if (group.Key is null)
             {
-                d.Name("DiscoverQueries");
-                foreach (var reg in registrations)
-                    AddModelQueryField(d, reg);
-            })
-        );
+                // No namespace — add fields directly to DiscoverQueries
+                types.Add(
+                    new ObjectTypeExtension(d =>
+                    {
+                        d.Name("DiscoverQueries");
+                        foreach (var reg in group)
+                            AddModelQueryField(d, reg);
+                    })
+                );
+            }
+            else
+            {
+                // Namespace — create/extend intermediate type
+                var nsTypeName = TrainTypeModule.NamespaceTypeName(group.Key, "DiscoverQueries");
+                var nsFieldName = TrainTypeModule.CamelCase(group.Key);
+
+                // Register the base ObjectType for this namespace (only once across modules)
+                if (configuration.RegisteredNamespaceTypes.Add(nsTypeName))
+                {
+                    types.Add(new ObjectType(d => d.Name(nsTypeName)));
+                }
+
+                // Add fields to the namespace type
+                types.Add(
+                    new ObjectTypeExtension(d =>
+                    {
+                        d.Name(nsTypeName);
+                        foreach (var reg in group)
+                            AddModelQueryField(d, reg);
+                    })
+                );
+
+                // Add the namespace field to DiscoverQueries (only once across modules)
+                var nsFieldKey = $"DiscoverQueries.{nsFieldName}";
+                if (configuration.RegisteredNamespaceTypes.Add(nsFieldKey))
+                {
+                    var capturedNsTypeName = nsTypeName;
+                    types.Add(
+                        new ObjectTypeExtension(d =>
+                        {
+                            d.Name("DiscoverQueries");
+                            d.Field(nsFieldName)
+                                .Type(new NamedTypeNode(capturedNsTypeName))
+                                .Resolve(_ => new object());
+                        })
+                    );
+                }
+            }
+        }
 
         return new(types);
     }

@@ -399,6 +399,91 @@ public class QueryModelTypeModuleTests
 
     #endregion
 
+    #region Namespace Grouping
+
+    [Test]
+    public async Task CreateTypesAsync_ModelWithNamespace_CreatesNamespaceTypeAndExtension()
+    {
+        var config = new GraphQLConfiguration([
+            new QueryModelRegistration(
+                typeof(TestPlayer),
+                typeof(TestDbContext),
+                new TraxQueryModelAttribute { Description = "Test players", Namespace = "game" }
+            ),
+        ]);
+        var module = new QueryModelTypeModule(config);
+
+        var types = await module.CreateTypesAsync(null!, CancellationToken.None);
+
+        // ObjectType<TestPlayer> + ObjectType (namespace base) + 2x ObjectTypeExtension
+        // (namespace fields + namespace field on DiscoverQueries)
+        types.OfType<ObjectTypeExtension>().Should().HaveCount(2);
+
+        // Namespace type should be tracked
+        config.RegisteredNamespaceTypes.Should().Contain("GameDiscoverQueries");
+        config.RegisteredNamespaceTypes.Should().Contain("DiscoverQueries.game");
+    }
+
+    [Test]
+    public async Task CreateTypesAsync_ModelWithoutNamespace_NoNamespaceTypesCreated()
+    {
+        var config = new GraphQLConfiguration([
+            new QueryModelRegistration(
+                typeof(TestPlayer),
+                typeof(TestDbContext),
+                new TraxQueryModelAttribute { Description = "Test players" }
+            ),
+        ]);
+        var module = new QueryModelTypeModule(config);
+
+        var types = await module.CreateTypesAsync(null!, CancellationToken.None);
+
+        // Should still have one extension directly on DiscoverQueries
+        types.OfType<ObjectTypeExtension>().Should().HaveCount(1);
+        config.RegisteredNamespaceTypes.Should().BeEmpty();
+    }
+
+    [Test]
+    public void TraxQueryModelAttribute_Namespace_DefaultsToNull()
+    {
+        var attr = new TraxQueryModelAttribute();
+        attr.Namespace.Should().BeNull();
+    }
+
+    [Test]
+    public void TraxQueryModelAttribute_Namespace_SetsCorrectly()
+    {
+        var attr = new TraxQueryModelAttribute { Namespace = "game" };
+        attr.Namespace.Should().Be("game");
+    }
+
+    [Test]
+    public async Task CreateTypesAsync_MixedNamespacedAndRootModels_BothGenerated()
+    {
+        var config = new GraphQLConfiguration([
+            new QueryModelRegistration(
+                typeof(TestPlayer),
+                typeof(TestDbContext),
+                new TraxQueryModelAttribute { Namespace = "game" }
+            ),
+            new QueryModelRegistration(
+                typeof(TestItem),
+                typeof(SecondDbContext),
+                new TraxQueryModelAttribute()
+            ),
+        ]);
+        var module = new QueryModelTypeModule(config);
+
+        var types = await module.CreateTypesAsync(null!, CancellationToken.None);
+
+        // Root model extension on DiscoverQueries + namespace field extension on DiscoverQueries
+        // + namespace type extension (GameDiscoverQueries)
+        types.OfType<ObjectTypeExtension>().Should().HaveCount(3);
+        config.RegisteredNamespaceTypes.Should().Contain("GameDiscoverQueries");
+    }
+
+    #endregion
+
     #region Stubs
 
     [TraxQueryModel(Description = "Test players")]
