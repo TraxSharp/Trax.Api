@@ -1,6 +1,7 @@
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Types;
 using HotChocolate.Types.Descriptors;
+using Trax.Api.GraphQL.Configuration;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Queries;
 using Trax.Effect.Attributes;
@@ -14,7 +15,10 @@ namespace Trax.Api.GraphQL.TypeModules;
 /// from discovered train registrations. Each train marked with [TraxMutation]/[TraxQuery] attributes
 /// gets a corresponding mutation/query field wired to the TrainExecutionService.
 /// </summary>
-public partial class TrainTypeModule(ITrainDiscoveryService discoveryService) : TypeModule
+public partial class TrainTypeModule(
+    ITrainDiscoveryService discoveryService,
+    GraphQLConfiguration? graphQLConfiguration = null
+) : TypeModule
 {
     /// <summary>
     /// Discovers all registered trains and generates the GraphQL schema types:
@@ -115,26 +119,33 @@ public partial class TrainTypeModule(ITrainDiscoveryService discoveryService) : 
             );
         }
 
-        // Register DiscoverQueries type + extend RootQuery with a "discover" field,
-        // but only when there are query trains.
+        // Register DiscoverQueries type + extend RootQuery with a "discover" field.
+        // When query model registrations exist, the base type and discover field are
+        // already registered in GraphQLServiceExtensions — only add the field extension.
+        var discoverBaseRegisteredExternally = graphQLConfiguration?.ModelRegistrations.Count > 0;
+
         if (queryFields.Count > 0)
         {
-            types.Add(new ObjectType<DiscoverQueries>());
+            if (!discoverBaseRegisteredExternally)
+            {
+                types.Add(new ObjectType<DiscoverQueries>());
+                types.Add(
+                    new ObjectTypeExtension(d =>
+                    {
+                        d.Name("RootQuery");
+                        d.Field("discover")
+                            .Type<ObjectType<DiscoverQueries>>()
+                            .Resolve(_ => new DiscoverQueries());
+                    })
+                );
+            }
+
             types.Add(
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("DiscoverQueries");
                     foreach (var (reg, name) in queryFields)
                         AddQueryField(d, reg, name);
-                })
-            );
-            types.Add(
-                new ObjectTypeExtension(d =>
-                {
-                    d.Name("RootQuery");
-                    d.Field("discover")
-                        .Type<ObjectType<DiscoverQueries>>()
-                        .Resolve(_ => new DiscoverQueries());
                 })
             );
         }
