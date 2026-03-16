@@ -59,8 +59,10 @@ public class QueryModelTypeModule(GraphQLConfiguration configuration) : TypeModu
     }
 
     private static readonly System.Reflection.MethodInfo ConfigureFieldMethod =
-        typeof(QueryModelTypeModule)
-            .GetMethod(nameof(ConfigureField), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        typeof(QueryModelTypeModule).GetMethod(
+            nameof(ConfigureField),
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static
+        )!;
 
     private static void AddModelQueryField(
         IObjectTypeDescriptor descriptor,
