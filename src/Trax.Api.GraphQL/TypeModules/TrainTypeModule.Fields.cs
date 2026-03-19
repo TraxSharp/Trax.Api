@@ -29,9 +29,10 @@ public partial class TrainTypeModule
         // Query fields use the derived name directly (no run/queue prefix)
         var fieldName = char.ToLowerInvariant(trainName[0]) + trainName[1..];
 
-        var field = descriptor
-            .Field(fieldName)
-            .Argument("input", a => a.Type(NonNullInputType(registration.InputType)));
+        var field = descriptor.Field(fieldName);
+
+        if (HasTypedInput(registration))
+            field.Argument("input", a => a.Type(NonNullInputType(registration.InputType)));
 
         ApplyDescriptionAndDeprecation(field, registration);
 
@@ -70,9 +71,10 @@ public partial class TrainTypeModule
     {
         var fieldName = char.ToLowerInvariant(trainName[0]) + trainName[1..];
 
-        var field = descriptor
-            .Field(fieldName)
-            .Argument("input", a => a.Type(NonNullInputType(registration.InputType)));
+        var field = descriptor.Field(fieldName);
+
+        if (HasTypedInput(registration))
+            field.Argument("input", a => a.Type(NonNullInputType(registration.InputType)));
 
         ApplyDescriptionAndDeprecation(field, registration);
 
@@ -162,10 +164,14 @@ public partial class TrainTypeModule
 
     /// <summary>
     /// Extracts the "input" argument and serializes it to JSON using the
-    /// Trax system serializer options.
+    /// Trax system serializer options. Returns "{}" for Unit input types
+    /// (no argument is registered on the field).
     /// </summary>
     private static string SerializeInput(IResolverContext ctx, Type inputType)
     {
+        if (inputType == typeof(LanguageExt.Unit))
+            return "{}";
+
         var input = ctx.ArgumentValue<object>("input");
         return JsonSerializer.Serialize(
             input,

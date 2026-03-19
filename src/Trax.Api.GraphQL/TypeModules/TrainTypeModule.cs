@@ -56,8 +56,9 @@ public partial class TrainTypeModule(
                 usedNames.Add(trainName);
             }
 
-            // Register HotChocolate InputObjectType / ObjectType once per CLR type
-            if (usedInputTypes.Add(reg.InputType))
+            // Register HotChocolate InputObjectType / ObjectType once per CLR type.
+            // Skip Unit — it has no properties, so InputObjectType<Unit> is invalid in HotChocolate.
+            if (HasTypedInput(reg) && usedInputTypes.Add(reg.InputType))
             {
                 var inputObjectType = (ITypeSystemMember)
                     Activator.CreateInstance(
@@ -272,12 +273,30 @@ public partial class TrainTypeModule(
     }
 
     /// <summary>
-    /// Returns true if the train produces a meaningful output type
-    /// (not Unit and not bare object).
+    /// Returns true if the train accepts a meaningful input type (not Unit).
+    /// Unit has no properties, so HotChocolate cannot create an InputObjectType for it.
+    /// </summary>
+    private static bool HasTypedInput(TrainRegistration registration) =>
+        registration.InputType != typeof(LanguageExt.Unit);
+
+    /// <summary>
+    /// Returns true if the train produces a meaningful output type that HotChocolate
+    /// can represent as an ObjectType with at least one field.
+    /// Excludes Unit, bare object, types with no properties, and types whose
+    /// properties are all typed as System.Object (which HotChocolate ignores).
     /// </summary>
     private static bool HasTypedOutput(TrainRegistration registration) =>
         registration.OutputType != typeof(LanguageExt.Unit)
-        && registration.OutputType != typeof(object);
+        && registration.OutputType != typeof(object)
+        && HasGraphQLRepresentableProperties(registration.OutputType);
+
+    /// <summary>
+    /// Returns true if the type has at least one public property whose type
+    /// is not System.Object. HotChocolate silently skips object-typed properties,
+    /// so a type with only object properties ends up with zero fields.
+    /// </summary>
+    private static bool HasGraphQLRepresentableProperties(Type type) =>
+        type.GetProperties().Any(p => p.PropertyType != typeof(object));
 
     /// <summary>
     /// Derives a PascalCase GraphQL name from a train's type name.
