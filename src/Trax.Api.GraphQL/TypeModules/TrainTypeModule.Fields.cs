@@ -164,12 +164,12 @@ public partial class TrainTypeModule
 
     /// <summary>
     /// Extracts the "input" argument and serializes it to JSON using the
-    /// Trax system serializer options. Returns "{}" for Unit input types
-    /// (no argument is registered on the field).
+    /// Trax system serializer options. Returns "{}" for input types with no
+    /// GraphQL-representable properties (empty records used for routing uniqueness).
     /// </summary>
     private static string SerializeInput(IResolverContext ctx, Type inputType)
     {
-        if (inputType == typeof(LanguageExt.Unit))
+        if (!HasGraphQLRepresentableProperties(inputType))
             return "{}";
 
         var input = ctx.ArgumentValue<object>("input");

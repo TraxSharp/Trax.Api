@@ -48,6 +48,18 @@ public partial class TrainTypeModule(
             if (!reg.IsQuery && !reg.IsMutation)
                 continue;
 
+            // Unit input is not allowed on GraphQL-exposed trains — each train must have
+            // a dedicated input record for mediator routing and schema generation.
+            if (reg.InputType == typeof(LanguageExt.Unit))
+            {
+                var attrType = reg.IsQuery ? "[TraxQuery]" : "[TraxMutation]";
+                throw new InvalidOperationException(
+                    $"Train '{reg.ServiceType.FullName}' has Unit input but is annotated with {attrType}. "
+                        + "GraphQL-exposed trains must have a dedicated input record. "
+                        + $"Create a type like: public record {DeriveTrainName(reg.ServiceTypeName)}Input;"
+                );
+            }
+
             // Derive a unique GraphQL name — fall back to fully-qualified name on collision
             var trainName = reg.GraphQLName ?? DeriveTrainName(reg.ServiceTypeName);
             if (!usedNames.Add(trainName))
@@ -273,11 +285,13 @@ public partial class TrainTypeModule(
     }
 
     /// <summary>
-    /// Returns true if the train accepts a meaningful input type (not Unit).
-    /// Unit has no properties, so HotChocolate cannot create an InputObjectType for it.
+    /// Returns true if the train's input type has at least one GraphQL-representable property.
+    /// Empty records (no properties) are allowed as input types for mediator routing uniqueness,
+    /// but HotChocolate cannot create an InputObjectType for them — so no input argument
+    /// is registered on the GraphQL field.
     /// </summary>
     private static bool HasTypedInput(TrainRegistration registration) =>
-        registration.InputType != typeof(LanguageExt.Unit);
+        HasGraphQLRepresentableProperties(registration.InputType);
 
     /// <summary>
     /// Returns true if the train produces a meaningful output type that HotChocolate
