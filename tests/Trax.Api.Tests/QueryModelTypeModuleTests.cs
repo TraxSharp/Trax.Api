@@ -515,10 +515,7 @@ public class QueryModelTypeModuleTests
     [Test]
     public void TraxQueryModelAttribute_BindFields_SetsToExplicit()
     {
-        var attr = new TraxQueryModelAttribute
-        {
-            BindFields = FieldBindingBehavior.Explicit,
-        };
+        var attr = new TraxQueryModelAttribute { BindFields = FieldBindingBehavior.Explicit };
         attr.BindFields.Should().Be(FieldBindingBehavior.Explicit);
     }
 
@@ -546,10 +543,7 @@ public class QueryModelTypeModuleTests
                 new QueryModelRegistration(
                     typeof(ExplicitEntity),
                     typeof(ExplicitDbContext),
-                    new TraxQueryModelAttribute
-                    {
-                        BindFields = FieldBindingBehavior.Explicit,
-                    }
+                    new TraxQueryModelAttribute { BindFields = FieldBindingBehavior.Explicit }
                 ),
             ],
             [],
