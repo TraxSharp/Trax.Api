@@ -15,15 +15,18 @@ namespace Trax.Api.Tests;
 [TestFixture]
 public class TraxHealthServiceTests
 {
+    // Pin pool size and prune idle connections aggressively so a long fixture
+    // run can't exhaust Postgres' max_connections in CI.
     private const string ConnectionString =
-        "Host=localhost;Port=5432;Database=trax;Username=trax;Password=trax123";
+        "Host=localhost;Port=5432;Database=trax;Username=trax;Password=trax123;"
+        + "Maximum Pool Size=4;Minimum Pool Size=0;Connection Idle Lifetime=1;Connection Pruning Interval=1";
 
     private ServiceProvider _provider = null!;
     private IDataContextProviderFactory _factory = null!;
     private TraxHealthService _service = null!;
 
-    [SetUp]
-    public async Task SetUp()
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -31,18 +34,23 @@ public class TraxHealthServiceTests
         _provider = services.BuildServiceProvider();
         _factory = _provider.GetRequiredService<IDataContextProviderFactory>();
         _service = new TraxHealthService(_factory);
+    }
 
+    [OneTimeTearDown]
+    public async Task OneTimeTearDown()
+    {
+        await _provider.DisposeAsync();
+        Npgsql.NpgsqlConnection.ClearAllPools();
+    }
+
+    [SetUp]
+    public async Task SetUp()
+    {
         await using var db = await _factory.CreateDbContextAsync(default);
         var ctx = (DbContext)db;
         await ctx.Database.ExecuteSqlRawAsync(
             "TRUNCATE TABLE trax.dead_letter, trax.metadata, trax.work_queue, trax.manifest, trax.manifest_group RESTART IDENTITY CASCADE"
         );
-    }
-
-    [TearDown]
-    public async Task TearDown()
-    {
-        await _provider.DisposeAsync();
     }
 
     [Test]

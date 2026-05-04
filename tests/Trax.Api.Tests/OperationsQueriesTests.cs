@@ -28,33 +28,41 @@ public class OperationsQueriesTests
 {
     // Use a per-class Postgres database so CountEstimator's pg_class query works.
     // Each test isolates by cleaning the affected tables in SetUp.
+    // Pin pool size and prune idle connections aggressively so a long fixture
+    // run can't exhaust Postgres' max_connections in CI.
     private const string ConnectionString =
-        "Host=localhost;Port=5432;Database=trax;Username=trax;Password=trax123";
+        "Host=localhost;Port=5432;Database=trax;Username=trax;Password=trax123;"
+        + "Maximum Pool Size=4;Minimum Pool Size=0;Connection Idle Lifetime=1;Connection Pruning Interval=1";
 
     private ServiceProvider _provider = null!;
     private IDataContextProviderFactory _factory = null!;
 
-    [SetUp]
-    public async Task SetUp()
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddTrax(t => t.AddEffects(e => e.UsePostgres(ConnectionString)));
         _provider = services.BuildServiceProvider();
         _factory = _provider.GetRequiredService<IDataContextProviderFactory>();
+    }
 
+    [OneTimeTearDown]
+    public async Task OneTimeTearDown()
+    {
+        await _provider.DisposeAsync();
+        Npgsql.NpgsqlConnection.ClearAllPools();
+    }
+
+    [SetUp]
+    public async Task SetUp()
+    {
         // Clean the tables this fixture touches so each test starts fresh.
         await using var db = await _factory.CreateDbContextAsync(default);
         var ctx = (Microsoft.EntityFrameworkCore.DbContext)db;
         await ctx.Database.ExecuteSqlRawAsync(
             "TRUNCATE TABLE trax.dead_letter, trax.metadata, trax.manifest, trax.manifest_group RESTART IDENTITY CASCADE"
         );
-    }
-
-    [TearDown]
-    public async Task TearDown()
-    {
-        await _provider.DisposeAsync();
     }
 
     private async Task SeedManifests(int count, long? groupId = null)
