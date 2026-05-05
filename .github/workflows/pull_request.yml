@@ -38,7 +38,9 @@ jobs:
         env:
           PGPASSWORD: trax123
         run: |
-          for db in trax_api_operations trax_api_health trax_api_auth; do
+          for db in trax_api_operations trax_api_health \
+                    trax_api_auth_http trax_api_auth_model trax_api_auth_sub \
+                    trax_api_auth_subprop trax_api_auth_authorize; do
             psql -h localhost -U trax -d trax -c "CREATE DATABASE $db;"
           done
       - run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
