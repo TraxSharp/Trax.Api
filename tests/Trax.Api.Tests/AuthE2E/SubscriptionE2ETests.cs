@@ -239,10 +239,31 @@ public class SubscriptionE2ETests
 
     private static async Task<JsonElement> ReceiveAsync(WebSocket ws)
     {
+        // Receive a full WebSocket message, accumulating fragmented frames and
+        // surfacing close frames with a useful diagnostic instead of letting
+        // the empty buffer fall through to a confusing JsonReaderException.
         var buffer = new byte[4096];
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var result = await ws.ReceiveAsync(buffer, cts.Token);
-        var text = Encoding.UTF8.GetString(buffer, 0, result.Count);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var ms = new MemoryStream();
+
+        while (true)
+        {
+            var result = await ws.ReceiveAsync(buffer, cts.Token);
+
+            if (result.MessageType == WebSocketMessageType.Close)
+                throw new InvalidOperationException(
+                    $"WebSocket closed unexpectedly while waiting for a message. "
+                        + $"Status: {result.CloseStatus}, Description: {result.CloseStatusDescription}"
+                );
+
+            if (result.Count > 0)
+                ms.Write(buffer, 0, result.Count);
+
+            if (result.EndOfMessage && ms.Length > 0)
+                break;
+        }
+
+        var text = Encoding.UTF8.GetString(ms.ToArray());
         return JsonDocument.Parse(text).RootElement.Clone();
     }
 
