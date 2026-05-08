@@ -314,11 +314,7 @@ public class WorkQueueOperationsTests
             .Returns(new OperationResult(false, Message: "Unknown train: nope"));
         var mutations = new WorkQueueMutations();
 
-        var response = await mutations.QueueTrain(
-            new QueueTrainInput("nope"),
-            ops,
-            default
-        );
+        var response = await mutations.QueueTrain(new QueueTrainInput("nope"), ops, default);
 
         response.Success.Should().BeFalse();
         response.Message.Should().Contain("Unknown train");
