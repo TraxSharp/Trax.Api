@@ -111,13 +111,6 @@ public static class TraxGraphQLBuilderPersistedOperationsExtensions
         builder.ExposeOperationMutations();
         builder.AddTypeExtensions(typeof(GraphQL.PersistedOperationMutations).Assembly);
 
-        // The management surface lives under operations.persistedOperations and
-        // returns a payload with nested operation/errors objects, so the deepest
-        // query (errors.locations.line) is 6 levels under the root. Raise the
-        // default depth limit if the consumer has not already overridden it.
-        if (!builder.MaxExecutionDepthWasOverridden && builder.MaxExecutionDepthValue < 8)
-            builder.MaxExecutionDepth(8);
-
         // Storage: implements both IPersistedOperationStore and the HC hot-path.
         services.AddSingleton<DbPersistedOperationStorage>();
         services.AddSingleton<IPersistedOperationStore>(sp =>
