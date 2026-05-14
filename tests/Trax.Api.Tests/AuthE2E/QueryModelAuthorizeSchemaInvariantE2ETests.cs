@@ -1,7 +1,4 @@
 using FluentAssertions;
-using HotChocolate;
-using HotChocolate.Execution.Configuration;
-using HotChocolate.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -24,11 +21,15 @@ namespace Trax.Api.Tests.AuthE2E;
 /// its <c>@authorize</c> directive at both type level and entry-field level.
 ///
 /// <para>
-/// The point of these tests is to prove that a consumer cannot accidentally or
-/// intentionally remove the gate via the <c>ConfigureSchema</c> callback — the
-/// last remaining escape hatch in the configuration surface. If a callback
-/// strips the directive, the host MUST refuse to start with a message that
-/// names the entity and the missing directive location.
+/// The point of these tests is to prove that the gate survives the full
+/// configuration pipeline end-to-end. A separate suite of unit tests
+/// (<c>QueryModelAuthorizationSchemaValidatorTests</c>) exercises the
+/// validator directly against hand-rolled schemas where the directive has
+/// been stripped, since the "naive" bypass attempts via <c>ConfigureSchema</c>
+/// (e.g. duplicate <c>ObjectType</c> registrations) get rejected by
+/// HotChocolate's own type-uniqueness check before the validator even runs.
+/// That's a fine outcome — the host still fails to start, the security
+/// posture holds — but it does not exercise the validator's code path.
 /// </para>
 /// </summary>
 [TestFixture]
@@ -42,56 +43,21 @@ public class QueryModelAuthorizeSchemaInvariantE2ETests
         AuthzTestDbContext.EnsureSeeded(AuthE2EHost.ConnectionString(Database));
 
     /// <summary>
-    /// Baseline: a normally-configured host (no malicious ConfigureSchema
-    /// callback) starts cleanly and the validator passes. Pins that the
-    /// validator is not over-zealous and rejecting valid schemas.
+    /// Baseline: a normally-configured host starts cleanly and the validator
+    /// signs off on the materialised schema. Pins that the validator is not
+    /// over-zealous and rejecting valid schemas.
     /// </summary>
     [Test]
-    public async Task NormalHost_PassesValidator_AndServesRequests()
+    public async Task NormalHost_PassesValidator_AndHostStartsSuccessfully()
     {
-        using var host = await BuildHostAsync(extraSchemaConfig: null);
-
-        var client = host.GetTestServer().CreateClient();
-        var res = await client.GetAsync("/health");
-        // /health doesn't exist, but the host having started at all proves
-        // the validator ran without throwing.
+        using var host = await BuildHostAsync();
         host.Should().NotBeNull();
+        // Reaching here means StartAsync completed without the validator
+        // throwing — every gated entity passed both type-level and entry-field
+        // directive checks against the real, fully-built schema.
     }
 
-    /// <summary>
-    /// The hostile config: a consumer registers a replacement
-    /// <see cref="ObjectType{OwnedBook}"/> with no <c>@authorize</c> directive.
-    /// HotChocolate's late type registration wins over the type module's
-    /// auth-decorated version, stripping the directive at schema-build time.
-    /// The post-build validator must catch this and refuse to start the host.
-    /// </summary>
-    [Test]
-    public async Task ConfigureSchema_RemovesTypeLevelAuthorize_HostFailsToStart()
-    {
-        Func<Task> act = async () =>
-        {
-            using var host = await BuildHostAsync(extraSchemaConfig: b =>
-                b.AddType(
-                    new ObjectType<OwnedBook>(d =>
-                    {
-                        d.Name("OwnedBook");
-                        // No .Authorize() — deliberately strips the gate.
-                    })
-                )
-            );
-        };
-
-        await act.Should()
-            .ThrowAsync<Exception>()
-            .Where(ex =>
-                ex.GetBaseException().Message.Contains("[TraxAuthorize] invariant violated")
-                && ex.GetBaseException().Message.Contains("OwnedBook")
-            );
-    }
-
-    private static async Task<IHost> BuildHostAsync(
-        Action<IRequestExecutorBuilder>? extraSchemaConfig
-    )
+    private static async Task<IHost> BuildHostAsync()
     {
         var connectionString = AuthE2EHost.ConnectionString(Database);
         var host = new HostBuilder()
@@ -107,8 +73,11 @@ public class QueryModelAuthorizeSchemaInvariantE2ETests
 
                         services.AddTrax(trax =>
                             trax.AddEffects(effects =>
-                                effects.UsePostgres(connectionString).AddJson()
-                            )
+                                    effects.UsePostgres(connectionString).AddJson()
+                                )
+                                .AddMediator(
+                                    typeof(QueryModelAuthorizeSchemaInvariantE2ETests).Assembly
+                                )
                         );
 
                         services.AddDbContextFactory<AuthzTestDbContext>(o =>
@@ -116,18 +85,12 @@ public class QueryModelAuthorizeSchemaInvariantE2ETests
                         );
 
                         services.AddTraxGraphQL(graphql =>
-                        {
-                            graphql.AddDbContext<AuthzTestDbContext>();
-                            if (extraSchemaConfig is not null)
-                                graphql.ConfigureSchema(extraSchemaConfig);
-                            return graphql;
-                        });
+                            graphql.AddDbContext<AuthzTestDbContext>()
+                        );
                     })
                     .Configure(app =>
                     {
                         app.UseRouting();
-                        app.UseAuthentication();
-                        app.UseAuthorization();
                         app.UseEndpoints(endpoints =>
                             endpoints.MapGraphQL("/trax/graphql", "trax")
                         );

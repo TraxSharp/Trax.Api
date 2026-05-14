@@ -55,10 +55,7 @@ internal sealed class QueryModelAuthorizationSchemaValidator(
         // (b) lets us walk the resolved types.
         using var scope = serviceProvider.CreateScope();
         var resolver = scope.ServiceProvider.GetRequiredService<IRequestExecutorResolver>();
-        var executor = await resolver.GetRequestExecutorAsync(
-            TraxSchemaName,
-            cancellationToken
-        );
+        var executor = await resolver.GetRequestExecutorAsync(TraxSchemaName, cancellationToken);
         var schema = executor.Schema;
 
         var queryType = schema.QueryType;
@@ -109,10 +106,7 @@ internal sealed class QueryModelAuthorizationSchemaValidator(
     /// gate is what blocks Connection-shaped scalars (<c>totalCount</c>, <c>pageInfo</c>)
     /// from leaking through when the request never resolves an entity node.
     /// </summary>
-    private static void VerifyEntryFieldDirective(
-        IObjectType rootQuery,
-        QueryModelRegistration reg
-    )
+    private static void VerifyEntryFieldDirective(IObjectType rootQuery, QueryModelRegistration reg)
     {
         // Path: RootQuery.discover -> (DiscoverQueries[.namespace]).<fieldName>
         var discoverField = rootQuery.Fields.FirstOrDefault(f => f.Name == "discover");
@@ -140,7 +134,8 @@ internal sealed class QueryModelAuthorizationSchemaValidator(
             container = (IObjectType)nsField.Type.NamedType();
         }
 
-        var fieldName = reg.Attribute.Name ?? QueryModelTypeModule.DeriveModelName(reg.EntityType.Name);
+        var fieldName =
+            reg.Attribute.Name ?? QueryModelTypeModule.DeriveModelName(reg.EntityType.Name);
         var entryField = container.Fields.FirstOrDefault(f => f.Name == fieldName);
         if (entryField is null)
             throw new InvalidOperationException(
