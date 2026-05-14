@@ -112,12 +112,23 @@ public static class AuthE2EHost
                             o.UseNpgsql(connectionString)
                         );
 
+                        // Second DbContext for [TraxAuthorize]-on-[TraxQueryModel]
+                        // coverage. Lives in the `test_authz` schema so it does
+                        // not interfere with the unauthorized fixtures. Only the
+                        // QueryModelAuthorize E2E suite seeds it; the other
+                        // suites tolerate its presence because none of their
+                        // queries touch its fields.
+                        services.AddDbContextFactory<AuthzTestDbContext>(o =>
+                            o.UseNpgsql(connectionString)
+                        );
+
                         services.AddTraxGraphQL(graphql =>
                             graphql
                                 // Default is generous (15) and covers the
                                 // discover/namespace/entity/nodes/field chain
                                 // without needing an explicit override.
                                 .AddDbContext<TestDbContext>()
+                                .AddDbContext<AuthzTestDbContext>()
                                 .AddTypeExtensions(typeof(AuthE2EHost).Assembly)
                                 // Add custom subscription + mutation type
                                 // extensions for principal-propagation tests.
