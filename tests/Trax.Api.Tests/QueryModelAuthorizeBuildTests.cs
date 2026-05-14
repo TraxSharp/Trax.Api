@@ -102,4 +102,50 @@ public class QueryModelAuthorizeBuildTests
 
         await provider.DidNotReceive().GetPolicyAsync(Arg.Any<string>());
     }
+
+    [TraxQueryModel]
+    [TraxAuthorize(Policy = "AdminPolicy")]
+    private class DupPolicyA
+    {
+        public int Id { get; set; }
+    }
+
+    [TraxQueryModel]
+    [TraxAuthorize(Policy = "AdminPolicy")]
+    private class DupPolicyB
+    {
+        public int Id { get; set; }
+    }
+
+    private class DupPolicyDbContext(DbContextOptions<DupPolicyDbContext> options)
+        : DbContext(options)
+    {
+        public DbSet<DupPolicyA> A { get; set; } = null!;
+        public DbSet<DupPolicyB> B { get; set; } = null!;
+    }
+
+    [Test]
+    public async Task Validator_SamePolicyOnMultipleEntities_QueriesProviderOnce()
+    {
+        // Two entities reference the same policy name. The validator's
+        // dedup check (`seen.Add` returning false) must skip the second
+        // lookup — proves we don't redundantly hit the policy provider once
+        // per entity in production hosts where a single role policy is
+        // applied to dozens of [TraxQueryModel] entities.
+        var config = new TraxGraphQLBuilder(new ServiceCollection())
+            .AddDbContext<DupPolicyDbContext>()
+            .Build();
+        config.ModelRegistrations.Should().HaveCount(2);
+
+        var provider = Substitute.For<IAuthorizationPolicyProvider>();
+        provider
+            .GetPolicyAsync("AdminPolicy")
+            .Returns(new AuthorizationPolicyBuilder().RequireAssertion(_ => true).Build());
+
+        var validator = new QueryModelAuthorizationValidator(config, provider);
+
+        await validator.StartAsync(CancellationToken.None);
+
+        await provider.Received(1).GetPolicyAsync("AdminPolicy");
+    }
 }
