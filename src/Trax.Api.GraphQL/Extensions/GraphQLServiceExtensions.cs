@@ -191,6 +191,7 @@ public static class GraphQLServiceExtensions
             if (config.ModelRegistrations.Any(r => r.AuthorizeAttributes.Count > 0))
             {
                 graphqlBuilder.AddAuthorization();
+                graphqlBuilder.AddHttpRequestInterceptor<QueryModelAuthenticationInterceptor>();
                 services.AddHostedService<QueryModelAuthorizationValidator>();
                 services.AddHostedService<QueryModelAuthorizationSchemaValidator>();
             }
