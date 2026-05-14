@@ -192,6 +192,7 @@ public static class GraphQLServiceExtensions
             {
                 graphqlBuilder.AddAuthorization();
                 services.AddHostedService<QueryModelAuthorizationValidator>();
+                services.AddHostedService<QueryModelAuthorizationSchemaValidator>();
             }
 
             // Register DiscoverQueries base type and discover field on RootQuery.
