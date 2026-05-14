@@ -90,6 +90,24 @@ public class GraphQLModelExposureWarningServiceTests
         entry.RenderedMessage.Should().Contain("2");
     }
 
+    [Test]
+    public async Task StopAsync_CompletesSynchronously()
+    {
+        // The warning service owns no resources. Pin the IHostedService
+        // contract — a future refactor that adds async cleanup to release
+        // something must update this test instead of silently changing the
+        // host-shutdown shape.
+        var services = new ServiceCollection();
+        var config = new TraxGraphQLBuilder(services).Build();
+        var logger = new RecordingLogger<GraphQLModelExposureWarningService>();
+        var sut = new GraphQLModelExposureWarningService(config, logger);
+
+        var task = sut.StopAsync(CancellationToken.None);
+
+        task.IsCompletedSuccessfully.Should().BeTrue();
+        await task;
+    }
+
     // ── Fixture entities ────────────────────────────────────────────────
 
     [TraxQueryModel]

@@ -171,6 +171,23 @@ public class QueryModelAuthorizationValidatorTests
             .Be(1, "the validator must dedup policy lookups by name across entities");
     }
 
+    [Test]
+    public async Task Validator_StopAsync_CompletesSynchronously()
+    {
+        // The validator owns no resources to release. Pinning that StopAsync
+        // returns a synchronously-completed Task forces a future refactor that
+        // introduces async cleanup to update this contract explicitly.
+        var config = new TraxGraphQLBuilder(new ServiceCollection())
+            .AddDbContext<RolesOnlyDbContext>()
+            .Build();
+        var validator = new QueryModelAuthorizationValidator(config, new ThrowingPolicyProvider());
+
+        var task = validator.StopAsync(CancellationToken.None);
+
+        task.IsCompletedSuccessfully.Should().BeTrue();
+        await task;
+    }
+
     [TraxQueryModel]
     [TraxAuthorize(Policy = "SharedPolicy")]
     private class FirstGatedBySharedPolicy
