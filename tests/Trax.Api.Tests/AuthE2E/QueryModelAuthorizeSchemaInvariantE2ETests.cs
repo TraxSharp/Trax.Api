@@ -59,6 +59,7 @@ public class QueryModelAuthorizeSchemaInvariantE2ETests
 
     private static async Task<IHost> BuildHostAsync()
     {
+        AuthE2EHost.EnsureDatabaseExists(Database);
         var connectionString = AuthE2EHost.ConnectionString(Database);
         var host = new HostBuilder()
             .ConfigureWebHost(web =>

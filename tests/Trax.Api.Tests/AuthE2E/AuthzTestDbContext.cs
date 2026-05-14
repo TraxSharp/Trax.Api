@@ -161,6 +161,10 @@ public class AuthzTestDbContext(DbContextOptions<AuthzTestDbContext> options) : 
     /// </summary>
     public static void EnsureSeeded(string connectionString)
     {
+        AuthE2EHost.EnsureDatabaseExists(
+            new Npgsql.NpgsqlConnectionStringBuilder(connectionString).Database!
+        );
+
         var opts = new DbContextOptionsBuilder<AuthzTestDbContext>()
             .UseNpgsql(connectionString)
             .Options;
