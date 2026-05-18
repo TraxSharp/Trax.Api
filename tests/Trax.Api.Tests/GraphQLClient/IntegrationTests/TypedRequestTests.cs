@@ -24,13 +24,9 @@ public class TypedRequestTests
     {
         _fixture = new GraphQLTestServerFixture();
         var services = new ServiceCollection();
-        services.AddGraphQLClient(
-            _fixture.BaseAddress,
-            opts =>
-            {
-                opts.HttpClient = _fixture.CreateHttpClient();
-            }
-        );
+        services
+            .AddTraxGraphQLClient(_fixture.BaseAddress)
+            .ConfigureHttpClient(_fixture.CreateHttpClient());
         _services = services.BuildServiceProvider();
         _executor = _services.GetRequiredService<IGraphQLClientExecutor>();
     }

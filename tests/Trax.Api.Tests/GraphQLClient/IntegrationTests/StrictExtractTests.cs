@@ -31,14 +31,10 @@ public class StrictExtractTests
     )
     {
         var services = new ServiceCollection();
-        services.AddGraphQLClient(
-            _fixture.BaseAddress,
-            opts =>
-            {
-                opts.HttpClient = _fixture.CreateHttpClient();
-                opts.ResponseStrictness = strictness;
-            }
-        );
+        services
+            .AddTraxGraphQLClient(_fixture.BaseAddress)
+            .ConfigureHttpClient(_fixture.CreateHttpClient())
+            .WithStrictness(strictness);
         if (logger is not null)
         {
             services.AddSingleton(logger);

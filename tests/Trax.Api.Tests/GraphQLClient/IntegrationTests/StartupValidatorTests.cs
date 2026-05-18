@@ -75,11 +75,12 @@ public class StartupValidatorTests
     }
 
     [Test]
-    public void AddTraxGraphQLClientStartupValidation_RegistersHostedService()
+    public void Builder_UseStartupValidation_RegistersHostedService()
     {
         var services = new ServiceCollection();
-        services.AddGraphQLClient(new Uri("http://localhost/graphql"));
-        services.AddTraxGraphQLClientStartupValidation(typeof(AllItemsRequest).Assembly);
+        services
+            .AddTraxGraphQLClient(new Uri("http://localhost/graphql"))
+            .UseStartupValidation(typeof(AllItemsRequest).Assembly);
 
         var hostedServices = services.Where(d => d.ServiceType == typeof(IHostedService)).ToList();
 
@@ -87,12 +88,12 @@ public class StartupValidatorTests
     }
 
     [Test]
-    public void AddTraxGraphQLClientStartupValidation_NoAssemblies_Throws()
+    public void Builder_UseStartupValidation_NoAssemblies_Throws()
     {
         var services = new ServiceCollection();
-        services.AddGraphQLClient(new Uri("http://localhost/graphql"));
+        var builder = services.AddTraxGraphQLClient(new Uri("http://localhost/graphql"));
 
-        var act = () => services.AddTraxGraphQLClientStartupValidation();
+        var act = () => builder.UseStartupValidation();
         act.Should().Throw<ArgumentException>();
     }
 }

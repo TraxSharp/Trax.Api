@@ -11,8 +11,9 @@ namespace Trax.Api.GraphQL.Client.Trax;
 /// failure with the specific request type and validator error, rather than a 400 on the
 /// first runtime call.
 ///
-/// Wire it up with <see cref="AddTraxGraphQLClientStartupValidation"/>. The assemblies must
-/// be registered up front; the hosted service runs once on <see cref="StartAsync"/>.
+/// Wire it up via <c>builder.UseStartupValidation(assemblies)</c> on the
+/// <see cref="TraxGraphQLClientBuilder"/>. The hosted service runs once on
+/// <see cref="StartAsync"/>.
 /// </summary>
 public sealed class GraphQLClientStartupValidator : IHostedService
 {
@@ -61,34 +62,4 @@ public sealed class GraphQLClientStartupValidator : IHostedService
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-}
-
-public static class StartupValidatorExtensions
-{
-    /// <summary>
-    /// Registers <see cref="GraphQLClientStartupValidator"/> as an <see cref="IHostedService"/>.
-    /// The validator runs once during host startup and throws on any schema-incompatible query,
-    /// preventing the app from accepting traffic until the drift is fixed.
-    /// </summary>
-    public static IServiceCollection AddTraxGraphQLClientStartupValidation(
-        this IServiceCollection services,
-        params Assembly[] assemblies
-    )
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(assemblies);
-        if (assemblies.Length == 0)
-            throw new ArgumentException(
-                "At least one assembly must be supplied for startup validation.",
-                nameof(assemblies)
-            );
-
-        services.AddHostedService(sp => new GraphQLClientStartupValidator(
-            sp.GetRequiredService<IGraphQLClientValidator>(),
-            assemblies,
-            typeFilter: null,
-            sp.GetService<ILogger<GraphQLClientStartupValidator>>()
-        ));
-        return services;
-    }
 }

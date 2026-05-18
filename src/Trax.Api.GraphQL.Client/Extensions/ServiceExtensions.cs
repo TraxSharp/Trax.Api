@@ -6,35 +6,43 @@ namespace Trax.Api.GraphQL.Client;
 public static class ServiceExtensions
 {
     /// <summary>
-    /// Registers the kernel GraphQL client: configuration, schema provider, validator, executor.
-    /// The default schema provider is <see cref="IntrospectingSchemaProvider"/>; replace it with
-    /// <see cref="FileSchemaProvider"/> or another <see cref="ISchemaProvider"/> implementation
-    /// by calling <c>services.Replace(...)</c> after this method.
+    /// Registers the Trax GraphQL client kernel against the supplied endpoint. Returns a
+    /// <see cref="TraxGraphQLClientBuilder"/> for fluent configuration:
+    /// <code>
+    /// services.AddTraxGraphQLClient(new Uri("https://api.example.com/graphql"))
+    ///         .UseFileSchema("schema.graphql")
+    ///         .WithStrictness(ResponseStrictness.ThrowOnDrift);
+    /// </code>
+    /// Calling without chaining is valid: it registers the kernel with default settings
+    /// (<see cref="IntrospectingSchemaProvider"/>, <see cref="ResponseStrictness.Lenient"/>).
     /// </summary>
-    public static IServiceCollection AddGraphQLClient(
+    public static TraxGraphQLClientBuilder AddTraxGraphQLClient(
         this IServiceCollection services,
-        Uri baseAddress,
-        Action<GraphQLClientConfigurationBuilder>? options = null
+        Uri baseAddress
     )
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(baseAddress);
 
-        var builder = new GraphQLClientConfigurationBuilder(baseAddress);
-        options?.Invoke(builder);
-        var configuration = builder.Build();
+        var configBuilder = new GraphQLClientConfigurationBuilder(baseAddress);
 
-        return services
-            .AddSingleton<IGraphQLClientConfiguration>(configuration)
-            .AddSingleton<ISchemaProvider, IntrospectingSchemaProvider>()
-            .AddSingleton<IGraphQLClientValidator, GraphQLClientValidator>()
-            .AddSingleton<IGraphQLClientExecutor, GraphQLClientExecutor>();
+        // The configuration is built lazily so that chained method calls on the returned
+        // builder can mutate the underlying state before DI resolves the singleton.
+        services.AddSingleton<IGraphQLClientConfiguration>(_ => configBuilder.Build());
+        services.AddSingleton<ISchemaProvider, IntrospectingSchemaProvider>();
+        services.AddSingleton<IGraphQLClientValidator, GraphQLClientValidator>();
+        services.AddSingleton<IGraphQLClientExecutor, GraphQLClientExecutor>();
+
+        return new TraxGraphQLClientBuilder(services, configBuilder);
     }
 
     /// <summary>
     /// Walks the given assemblies, instantiates every <see cref="IGenericGraphQLClientRequest"/>
-    /// type without invoking its constructor, and validates each <c>Query</c> against the schema.
-    /// Call this after <c>app.Build()</c> to fail fast on schema-incompatible queries.
+    /// type without invoking its constructor, and validates each <c>Query</c> against the
+    /// schema. Call this after <c>app.Build()</c> to fail fast on schema-incompatible queries.
+    ///
+    /// For host-startup gating that fails the boot if validation throws, use
+    /// <c>builder.UseStartupValidation(...)</c> on the Trax integration package instead.
     /// </summary>
     public static Task ValidateGraphQLClientAssembliesAsync(
         this IServiceProvider services,

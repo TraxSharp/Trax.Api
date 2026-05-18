@@ -102,11 +102,12 @@ public class AssemblySchemaProviderTests
     }
 
     [Test]
-    public void AddTraxGraphQLClient_WithConfigurator_ReplacesSchemaProvider()
+    public void Builder_UseAssemblySchema_ReplacesSchemaProvider()
     {
         var services = new ServiceCollection();
-        services.AddGraphQLClient(new Uri("http://localhost/graphql"));
-        services.AddTraxGraphQLClient(ConfigureTestSchema);
+        services
+            .AddTraxGraphQLClient(new Uri("http://localhost/graphql"))
+            .UseAssemblySchema(ConfigureTestSchema);
 
         var sp = services.BuildServiceProvider();
         var provider = sp.GetRequiredService<ISchemaProvider>();
@@ -115,11 +116,39 @@ public class AssemblySchemaProviderTests
     }
 
     [Test]
-    public void AddTraxGraphQLClient_WithoutConfigurator_LeavesIntrospectingDefault()
+    public void Builder_NoUseSchemaCall_LeavesIntrospectingDefault()
     {
         var services = new ServiceCollection();
-        services.AddGraphQLClient(new Uri("http://localhost/graphql"));
-        services.AddTraxGraphQLClient();
+        services.AddTraxGraphQLClient(new Uri("http://localhost/graphql"));
+
+        var sp = services.BuildServiceProvider();
+        var provider = sp.GetRequiredService<ISchemaProvider>();
+
+        provider.Should().BeOfType<IntrospectingSchemaProvider>();
+    }
+
+    [Test]
+    public void Builder_UseFileSchema_RegistersFileSchemaProvider()
+    {
+        var services = new ServiceCollection();
+        services
+            .AddTraxGraphQLClient(new Uri("http://localhost/graphql"))
+            .UseFileSchema("/tmp/schema.graphql");
+
+        var sp = services.BuildServiceProvider();
+        var provider = sp.GetRequiredService<ISchemaProvider>();
+
+        provider.Should().BeOfType<FileSchemaProvider>();
+    }
+
+    [Test]
+    public void Builder_UseIntrospection_RegistersIntrospectingProvider()
+    {
+        var services = new ServiceCollection();
+        services
+            .AddTraxGraphQLClient(new Uri("http://localhost/graphql"))
+            .UseFileSchema("/tmp/x.graphql")
+            .UseIntrospection();
 
         var sp = services.BuildServiceProvider();
         var provider = sp.GetRequiredService<ISchemaProvider>();
