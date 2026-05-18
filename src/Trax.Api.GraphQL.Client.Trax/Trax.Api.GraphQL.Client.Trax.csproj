@@ -24,5 +24,6 @@
     <PackageReference Include="Trax.Effect" Version="1.*" />
     <PackageReference Include="Trax.Mediator" Version="1.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.*" />
   </ItemGroup>
 </Project>
