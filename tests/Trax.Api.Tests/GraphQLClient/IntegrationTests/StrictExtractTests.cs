@@ -97,6 +97,22 @@ public class StrictExtractTests
         result.Name.Should().Be("Aragorn");
     }
 
+    [Test]
+    public async Task ThrowOnDrift_NestedPathTypedRequest_NavigatesBeforeChecking()
+    {
+        // Critical regression test for the path-aware executor refactor. If the executor's
+        // pre-validation unwrap doesn't walk the Path, the shape validator is handed the
+        // `discover` envelope (whose fields are "netsuite", "players") instead of the
+        // leaf Player object, and would report drift against TypedPlayerProfile's fields.
+        // No throw == navigation worked.
+        var executor = BuildExecutor(ResponseStrictness.ThrowOnDrift);
+
+        var result = await executor.Run(new GetNestedCustomerByEmailRequest { Email = "Aragorn" });
+
+        result.Should().NotBeNull();
+        result!.Id.Should().Be("player-1");
+    }
+
     private sealed class CapturedLogger : ILogger<GraphQLClientExecutor>
     {
         public List<(LogLevel Level, string Message)> Entries { get; } = new();
