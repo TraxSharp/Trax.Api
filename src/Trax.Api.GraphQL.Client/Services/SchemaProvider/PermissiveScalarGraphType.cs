@@ -19,7 +19,8 @@ internal sealed class PermissiveScalarGraphType : ScalarGraphType
 {
     public PermissiveScalarGraphType(string name)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        // IntrospectingSchemaProvider filters on `type.Name is { Length: > 0 }` before
+        // constructing, so we trust the caller here. No defensive null/empty validation.
         Name = name;
     }
 

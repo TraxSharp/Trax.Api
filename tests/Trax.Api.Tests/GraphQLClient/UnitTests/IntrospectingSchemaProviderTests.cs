@@ -227,6 +227,48 @@ public class IntrospectingSchemaProviderTests
     }
 
     [Test]
+    public async Task GetSchemaAsync_CustomScalar_LiteralArgumentValidates()
+    {
+        // graphql-dotnet's query validator invokes ParseLiteral on argument literals to
+        // confirm the value coerces into the declared scalar type. The permissive backing
+        // for our introspected scalars must accept any literal kind. Without this test, a
+        // regression that threw on, say, integer literals would silently reject every real
+        // query that passes numeric values to custom-scalar args.
+        const string body = """
+            {
+              "data": {
+                "__schema": {
+                  "queryType": { "name": "Query" },
+                  "types": [
+                    { "kind": "SCALAR", "name": "Any" },
+                    { "kind": "OBJECT", "name": "Query", "fields": [
+                      { "name": "lookup",
+                        "type": { "kind": "SCALAR", "name": "String" },
+                        "args": [
+                          { "name": "input", "type": { "kind": "NON_NULL", "ofType": { "kind": "SCALAR", "name": "Any" } } }
+                        ]
+                      }
+                    ] }
+                  ]
+                }
+              }
+            }
+            """;
+        var stub = new StubHttpMessageHandler(body);
+        var provider = new IntrospectingSchemaProvider(BuildConfig(stub));
+        var validator = new GraphQLClientValidator(provider);
+
+        // Pass literals of every shape the validator might hand to ParseLiteral. If any
+        // throws, validation fails — exactly the regression class direct ParseLiteral unit
+        // tests pretended to catch but couldn't (the validator does its own coercion path).
+        await validator.ValidateAsync("""query { lookup(input: "hello") }""");
+        await validator.ValidateAsync("""query { lookup(input: 42) }""");
+        await validator.ValidateAsync("""query { lookup(input: 3.14) }""");
+        await validator.ValidateAsync("""query { lookup(input: true) }""");
+        await validator.ValidateAsync("""query { lookup(input: false) }""");
+    }
+
+    [Test]
     public async Task GetSchemaAsync_BuiltinScalars_NotDoublyRegistered()
     {
         // Built-in scalars (String, Int, Float, Boolean, ID) come pre-registered by

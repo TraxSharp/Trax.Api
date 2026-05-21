@@ -98,6 +98,21 @@ public class StrictExtractTests
     }
 
     [Test]
+    public async Task DefaultExtractor_RawStringRequest_NullLeaf_ReturnsDefault()
+    {
+        // The default Extract on IGraphQLClientRequest<T> short-circuits when the unwrapped
+        // element is JSON null, returning default(T) instead of throwing. Without this branch,
+        // any raw-string request against a nullable schema field would throw on a legitimate
+        // null response. Typed requests can't exercise this path because they override
+        // UnwrapDataElement — only raw-string consumers hit the interface's default.
+        var executor = BuildExecutor(ResponseStrictness.Lenient);
+
+        var result = await executor.Run(new GetPlayerOrNullRequest { Id = "no-such-player" });
+
+        result.Should().BeNull();
+    }
+
+    [Test]
     public async Task ThrowOnDrift_NestedPathTypedRequest_NavigatesBeforeChecking()
     {
         // Critical regression test for the path-aware executor refactor. If the executor's

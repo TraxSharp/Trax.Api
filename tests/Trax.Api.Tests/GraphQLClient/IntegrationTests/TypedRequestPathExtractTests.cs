@@ -172,6 +172,28 @@ public class TypedRequestPathExtractTests
     }
 
     [Test]
+    public void Extract_NoPath_MissingRootField_ThrowsNamingEnvelope()
+    {
+        // Real-world regression: server renames a root field without notifying the client.
+        // The flat typed request has no Path, so the error message refers to the top-level
+        // data envelope rather than a named parent field — exercises the `parentField is null`
+        // arm of the error builder that the Path-based failure tests don't reach.
+        var data = ParseData("""{ "wrongFieldName": { "id": "p1" } }""");
+        IGraphQLClientRequest<TypedPlayerProfile> request = new GetPlayerByTypedRequest
+        {
+            Id = "x",
+        };
+
+        var act = () => request.Extract(data, Options);
+
+        var ex = act.Should().Throw<GraphQLExecutionException>().Which;
+        ex.Message.Should().Contain("player"); // the RootField the client expected
+        ex.Message.Should().Contain("response data envelope");
+        ex.Message.Should().Contain("wrongFieldName"); // what was actually present
+        ex.Message.Should().Contain("GetPlayerByTypedRequest");
+    }
+
+    [Test]
     public void UsesDefaultExtractor_NestedRequest_StaysTrue()
     {
         // Strictness validation only runs for requests that say so. A nested-path request
