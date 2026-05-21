@@ -1,5 +1,4 @@
 using GraphQL.Types;
-using GraphQLParser.AST;
 
 namespace Trax.Api.GraphQL.Client;
 
@@ -10,10 +9,10 @@ namespace Trax.Api.GraphQL.Client;
 /// query validation.
 ///
 /// The client validator only cares that fields and types exist and that operations are
-/// well-formed. It never serializes or deserializes scalar values, so permissive
-/// pass-through implementations of <see cref="ParseValue"/> / <see cref="Serialize"/> /
-/// <see cref="ParseLiteral"/> are correct here. Server-side execution applies the real
-/// scalar semantics.
+/// well-formed. <see cref="ScalarGraphType.ParseLiteral"/> falls back on the base class's
+/// reasonable default (delegates through <see cref="CanParseLiteral"/>), so the only
+/// override we need is <see cref="ParseValue"/>, which graphql-dotnet declares abstract.
+/// Server-side execution applies the real scalar semantics.
 /// </summary>
 internal sealed class PermissiveScalarGraphType : ScalarGraphType
 {
@@ -25,17 +24,4 @@ internal sealed class PermissiveScalarGraphType : ScalarGraphType
     }
 
     public override object? ParseValue(object? value) => value;
-
-    public override object? Serialize(object? value) => value;
-
-    public override object? ParseLiteral(GraphQLValue value) =>
-        value switch
-        {
-            GraphQLStringValue s => s.Value.ToString(),
-            GraphQLIntValue i => i.Value.ToString(),
-            GraphQLFloatValue f => f.Value.ToString(),
-            GraphQLBooleanValue b => b.Value.Length > 0 && b.Value.Span[0] == 't',
-            GraphQLNullValue => null,
-            _ => null,
-        };
 }

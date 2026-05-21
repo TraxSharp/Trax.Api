@@ -98,6 +98,24 @@ public class StrictExtractTests
     }
 
     [Test]
+    public async Task DefaultExtractor_RawStringRequest_MultipleRootFields_KeepsFullEnvelope()
+    {
+        // Real-world case: a hand-written query selects two siblings under data.
+        // The default UnwrapDataElement must NOT unwrap when there's more than one
+        // top-level property — the consumer's POCO has both fields and needs the whole
+        // envelope. Without this test, a regression that unconditionally returned the
+        // first property would silently drop the second field from every multi-root query.
+        var executor = BuildExecutor(ResponseStrictness.Lenient);
+
+        var result = await executor.Run(new TwoRootsRequest { Id = "player-1" });
+
+        result.AllItems.Should().HaveCount(3);
+        result.Player.Should().NotBeNull();
+        result.Player!.Id.Should().Be("player-1");
+        result.Player.Name.Should().Be("Aragorn");
+    }
+
+    [Test]
     public async Task DefaultExtractor_RawStringRequest_NullLeaf_ReturnsDefault()
     {
         // The default Extract on IGraphQLClientRequest<T> short-circuits when the unwrapped

@@ -194,6 +194,27 @@ public class TypedRequestPathExtractTests
     }
 
     [Test]
+    public void Extract_NonObjectDataEnvelope_NamesTheEnvelopeInError()
+    {
+        // Buggy server returns `{"data": 42}` instead of an object. The executor's
+        // pre-Extract filter only blocks Undefined and Null kinds, so a malformed envelope
+        // reaches our extractor. The error must name the envelope (not a fictional parent
+        // field) and the actual JSON kind so the operator can debug the server, not us.
+        var data = ParseData("42");
+        IGraphQLClientRequest<TypedPlayerProfile> request = new GetPlayerByTypedRequest
+        {
+            Id = "x",
+        };
+
+        var act = () => request.Extract(data, Options);
+
+        var ex = act.Should().Throw<GraphQLExecutionException>().Which;
+        ex.Message.Should().Contain("response data envelope");
+        ex.Message.Should().Contain("Number");
+        ex.Message.Should().Contain("GetPlayerByTypedRequest");
+    }
+
+    [Test]
     public void UsesDefaultExtractor_NestedRequest_StaysTrue()
     {
         // Strictness validation only runs for requests that say so. A nested-path request
