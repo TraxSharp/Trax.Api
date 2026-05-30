@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using HotChocolate;
 using HotChocolate.Data.Filters;
 using HotChocolate.Data.Filters.Expressions;
 using HotChocolate.Language;
@@ -18,6 +17,8 @@ internal sealed class QueryableStringIEqualsHandler : QueryableStringOperationHa
     public QueryableStringIEqualsHandler(InputParser inputParser)
         : base(inputParser)
     {
+        // The operand is required: with CanBeNull = false the filter middleware rejects
+        // `ieq: null` before this handler runs, so parsedValue is a non-null string below.
         CanBeNull = false;
     }
 
@@ -31,14 +32,7 @@ internal sealed class QueryableStringIEqualsHandler : QueryableStringOperationHa
     )
     {
         var property = context.GetInstance();
-
-        if (parsedValue is not string term)
-            throw new GraphQLException(
-                ErrorBuilder
-                    .New()
-                    .SetMessage("`ieq` does not accept null. Provide a string value.")
-                    .Build()
-            );
+        var term = (string)parsedValue!;
 
         var equal = Expression.Equal(
             CaseInsensitiveExpression.Lower(property),

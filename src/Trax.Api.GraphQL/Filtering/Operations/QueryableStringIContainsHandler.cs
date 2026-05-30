@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using HotChocolate;
 using HotChocolate.Data.Filters;
 using HotChocolate.Data.Filters.Expressions;
 using HotChocolate.Language;
@@ -24,8 +23,9 @@ internal sealed class QueryableStringIContainsHandler : QueryableStringOperation
     public QueryableStringIContainsHandler(InputParser inputParser)
         : base(inputParser)
     {
-        // The operand is required: `icontains: null` is rejected, matching the
-        // built-in `contains` handler.
+        // The operand is required, matching the built-in `contains` handler. With
+        // CanBeNull = false the filter middleware rejects `icontains: null` before this
+        // handler runs, so parsedValue is always a non-null string below.
         CanBeNull = false;
     }
 
@@ -39,14 +39,7 @@ internal sealed class QueryableStringIContainsHandler : QueryableStringOperation
     )
     {
         var property = context.GetInstance();
-
-        if (parsedValue is not string term)
-            throw new GraphQLException(
-                ErrorBuilder
-                    .New()
-                    .SetMessage("`icontains` does not accept null. Provide a string value.")
-                    .Build()
-            );
+        var term = (string)parsedValue!;
 
         var contains = Expression.Call(
             CaseInsensitiveExpression.Lower(property),

@@ -7,12 +7,19 @@ using HotChocolate.Types;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using Trax.Api.GraphQL.Configuration;
 using Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder;
+using Trax.Api.GraphQL.Extensions;
 using Trax.Api.GraphQL.Filtering;
 using Trax.Api.GraphQL.Queries;
 using Trax.Api.GraphQL.TypeModules;
+using Trax.Api.Services.HealthCheck;
 using Trax.Effect.Attributes;
+using Trax.Effect.Configuration.TraxBuilder;
+using Trax.Effect.Services.EffectRegistry;
+using Trax.Mediator.Services.TrainDiscovery;
+using Trax.Scheduler.Services.TraxScheduler;
 
 namespace Trax.Api.Tests;
 
@@ -187,7 +194,7 @@ public class CaseInsensitiveFilterTests
 
         var op = result.ExpectOperationResult();
         op.Errors.Should().BeNullOrEmpty();
-        TotalCount(op).Should().Be(2);
+        TotalCount(op, "memberRefs").Should().Be(2);
     }
 
     [Test]
@@ -202,6 +209,102 @@ public class CaseInsensitiveFilterTests
 
         var ids = await QueryIdsAsync(executor, "name: { icontains: \"WALL\" }");
         ids.Should().Equal(1, 2);
+    }
+
+    #endregion
+
+    #region Null operand handling
+
+    // Both operators declare a required (non-null) operand. A null operand is rejected
+    // and no rows are returned, rather than silently matching everything. This pins the
+    // contract: if the operand were ever made nullable, these would catch it.
+
+    [Test]
+    public async Task IContains_NullOperand_IsRejected()
+    {
+        var executor = await BuildExecutorAsync<PeopleDbContext>(seedData: true);
+
+        var result = await executor.ExecuteAsync(
+            "{ discover { people(where: { name: { icontains: null } }) { totalCount } } }"
+        );
+
+        var op = result.ExpectOperationResult();
+        op.Errors.Should().NotBeNullOrEmpty();
+        // The field errors out instead of matching every row.
+        var discover = (IReadOnlyDictionary<string, object?>)op.Data!["discover"]!;
+        discover["people"].Should().BeNull();
+    }
+
+    [Test]
+    public async Task IEq_NullOperand_IsRejected()
+    {
+        var executor = await BuildExecutorAsync<PeopleDbContext>(seedData: true);
+
+        var result = await executor.ExecuteAsync(
+            "{ discover { people(where: { name: { ieq: null } }) { totalCount } } }"
+        );
+
+        var op = result.ExpectOperationResult();
+        op.Errors.Should().NotBeNullOrEmpty();
+        var discover = (IReadOnlyDictionary<string, object?>)op.Data!["discover"]!;
+        discover["people"].Should().BeNull();
+    }
+
+    #endregion
+
+    #region End-to-end through AddTraxGraphQL
+
+    [Test]
+    public async Task AddTraxGraphQL_WithConfigureFiltering_AppliesOperatorsEndToEnd()
+    {
+        // Exercises the real GraphQLServiceExtensions wiring (the FilterModules branch
+        // that calls AddDefaults() then module.Apply), not the hand-rolled harness above.
+        var dbName = "CiWiring_" + Guid.NewGuid();
+        var dbRoot = new InMemoryDatabaseRoot();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<TraxMarker>();
+        services.AddSingleton(Substitute.For<ITrainDiscoveryService>());
+        services.AddSingleton(Substitute.For<IEffectRegistry>());
+        services.AddSingleton(Substitute.For<ITraxScheduler>());
+        services.AddSingleton(Substitute.For<ITraxHealthService>());
+        services.AddDbContext<PeopleDbContext>(o => o.UseInMemoryDatabase(dbName, dbRoot));
+
+        services.AddTraxGraphQL(g =>
+            g.AddDbContext<PeopleDbContext>()
+                .ConfigureFiltering(f => f.AddCaseInsensitiveStringOperations())
+        );
+
+        await using var provider = services.BuildServiceProvider();
+
+        using (var scope = provider.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<PeopleDbContext>();
+            ctx.People.AddRange(
+                new Person { Id = 1, Name = "Wally" },
+                new Person { Id = 2, Name = "WALLACE" },
+                new Person { Id = 3, Name = "bob" }
+            );
+            await ctx.SaveChangesAsync();
+        }
+
+        var executor = await provider
+            .GetRequiredService<IRequestExecutorResolver>()
+            .GetRequestExecutorAsync("trax");
+
+        // The operators reached the schema through the real wiring.
+        var stringFilter = executor.Schema.GetType<InputObjectType>("StringOperationFilterInput");
+        stringFilter.Fields.Select(f => f.Name).Should().Contain(["icontains", "ieq"]);
+
+        // And they actually filter against DI-resolved data.
+        var result = await executor.ExecuteAsync(
+            "{ discover { people(where: { name: { icontains: \"WALL\" } }) { totalCount } } }"
+        );
+
+        var op = result.ExpectOperationResult();
+        op.Errors.Should().BeNullOrEmpty();
+        TotalCount(op, "people").Should().Be(2);
     }
 
     #endregion
@@ -293,10 +396,10 @@ public class CaseInsensitiveFilterTests
             .ToList();
     }
 
-    private static int TotalCount(IOperationResult op)
+    private static int TotalCount(IOperationResult op, string field)
     {
         var discover = (IReadOnlyDictionary<string, object?>)op.Data!["discover"]!;
-        var connection = (IReadOnlyDictionary<string, object?>)discover["memberRefs"]!;
+        var connection = (IReadOnlyDictionary<string, object?>)discover[field]!;
         return Convert.ToInt32(connection["totalCount"]);
     }
 
