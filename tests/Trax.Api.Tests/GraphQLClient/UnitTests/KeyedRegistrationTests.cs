@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Trax.Api.GraphQL.Client;
+using Trax.Api.GraphQL.Client.Trax;
 
 namespace Trax.Api.Tests.GraphQLClient.UnitTests;
 
@@ -153,6 +155,123 @@ public class KeyedRegistrationTests
     {
         IServiceCollection services = null!;
         var act = () => services.AddKeyedTraxGraphQLClient("serverB", ServerB);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    // UseIntrospection routes through the builder's ResolveConfiguration helper. Resolving the
+    // provider runs the factory, so the schema provider is built against the right registration
+    // (keyed vs unkeyed) without a network call.
+
+    [Test]
+    public void KeyedUseIntrospection_ResolvesIntrospectingProviderForThatKey()
+    {
+        var services = new ServiceCollection();
+        services.AddKeyedTraxGraphQLClient("serverB", ServerB).UseIntrospection();
+
+        using var sp = services.BuildServiceProvider();
+
+        sp.GetRequiredKeyedService<ISchemaProvider>("serverB")
+            .Should()
+            .BeOfType<IntrospectingSchemaProvider>();
+    }
+
+    [Test]
+    public void UnkeyedUseIntrospection_ResolvesIntrospectingProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddTraxGraphQLClient(ServerB).UseIntrospection();
+
+        using var sp = services.BuildServiceProvider();
+
+        sp.GetRequiredService<ISchemaProvider>().Should().BeOfType<IntrospectingSchemaProvider>();
+    }
+
+    // UseStartupValidation's hosted-service factory resolves the validator through the builder's
+    // ResolveValidator helper. Resolving the hosted service runs that factory, so the keyed path
+    // would throw if it resolved the (nonexistent) unkeyed validator.
+
+    [Test]
+    public void KeyedUseStartupValidation_ResolvesHostedServiceWithKeyedValidator()
+    {
+        var services = new ServiceCollection();
+        services
+            .AddKeyedTraxGraphQLClient("serverB", ServerB)
+            .UseStartupValidation(typeof(KeyedRegistrationTests).Assembly);
+
+        using var sp = services.BuildServiceProvider();
+
+        sp.GetServices<IHostedService>()
+            .OfType<GraphQLClientStartupValidator>()
+            .Should()
+            .ContainSingle();
+    }
+
+    [Test]
+    public void UnkeyedUseStartupValidation_ResolvesHostedService()
+    {
+        var services = new ServiceCollection();
+        services
+            .AddTraxGraphQLClient(ServerB)
+            .UseStartupValidation(typeof(KeyedRegistrationTests).Assembly);
+
+        using var sp = services.BuildServiceProvider();
+
+        sp.GetServices<IHostedService>()
+            .OfType<GraphQLClientStartupValidator>()
+            .Should()
+            .ContainSingle();
+    }
+
+    // Keyed ValidateGraphQLClientAssembliesAsync overload.
+
+    [Test]
+    public void KeyedValidateAssemblies_UnknownKey_Throws()
+    {
+        var services = new ServiceCollection();
+        services.AddKeyedTraxGraphQLClient("serverB", ServerB);
+        using var sp = services.BuildServiceProvider();
+
+        // No "nope" client registered, so resolving the keyed validator must fail. This proves
+        // the overload resolves by the supplied key, not the unkeyed validator. The guard runs
+        // synchronously, so assert against the invocation rather than the returned task.
+        Action act = () =>
+            _ = sp.ValidateGraphQLClientAssembliesAsync("nope", typeof(object).Assembly);
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task KeyedValidateAssemblies_ResolvesKeyedValidator_AndCompletes()
+    {
+        var services = new ServiceCollection();
+        services.AddKeyedTraxGraphQLClient("serverB", ServerB);
+        using var sp = services.BuildServiceProvider();
+
+        // An assembly with no IGenericGraphQLClientRequest types resolves the keyed validator and
+        // delegates to it without a schema fetch, covering the overload's happy path.
+        await sp.Invoking(p =>
+                p.ValidateGraphQLClientAssembliesAsync("serverB", typeof(object).Assembly)
+            )
+            .Should()
+            .NotThrowAsync();
+    }
+
+    [Test]
+    public void KeyedValidateAssemblies_NullServiceKey_Throws()
+    {
+        using var sp = new ServiceCollection().BuildServiceProvider();
+        // Cast to object so the call binds to the keyed overload rather than the params-Assembly
+        // one (a null first argument is otherwise ambiguous between them).
+        Action act = () =>
+            _ = sp.ValidateGraphQLClientAssembliesAsync((object)null!, typeof(object).Assembly);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Test]
+    public void KeyedValidateAssemblies_NullServices_Throws()
+    {
+        IServiceProvider sp = null!;
+        Action act = () =>
+            _ = sp.ValidateGraphQLClientAssembliesAsync("serverB", typeof(object).Assembly);
         act.Should().Throw<ArgumentNullException>();
     }
 }
