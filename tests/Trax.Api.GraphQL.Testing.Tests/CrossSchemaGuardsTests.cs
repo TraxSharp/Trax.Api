@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Trax.Api.GraphQL.DataLoaders.CrossSchema;
 using Trax.Core.Testing;
 
@@ -17,6 +18,12 @@ public class CrossSchemaGuardsTests
     {
         public int Id { get; set; }
         public int BookId { get; set; }
+    }
+
+    private sealed class FakeStringFkLoan
+    {
+        public int Id { get; set; }
+        public string BookId { get; set; } = "";
     }
 
     private sealed class FakeCatalogContext : DbContext
@@ -81,6 +88,64 @@ public class CrossSchemaGuardsTests
 
         result.Passed.Should().BeFalse();
         result.Offenders.Should().Contain(o => o.Contains("camelCase"));
+    }
+
+    [Test]
+    public void EdgeManifestIsValid_FlagsNonIntegerForeignKey()
+    {
+        var edges = new List<CrossSchemaEdge>
+        {
+            new(
+                typeof(FakeStringFkLoan),
+                nameof(FakeStringFkLoan.BookId),
+                typeof(FakeBook),
+                typeof(FakeCatalogContext),
+                "book"
+            ),
+        };
+
+        var result = CrossSchemaGuards.EdgeManifestIsValid(edges);
+
+        result.Passed.Should().BeFalse();
+        result.Offenders.Should().Contain(o => o.Contains("int foreign key"));
+    }
+
+    [Test]
+    public void EdgeManifestIsValid_FlagsTargetNotOwnedByContext()
+    {
+        // FakeCatalogContext exposes only DbSet<FakeBook>, not DbSet<FakeLoan>.
+        var edges = new List<CrossSchemaEdge>
+        {
+            new(
+                typeof(FakeBook),
+                nameof(FakeBook.Id),
+                typeof(FakeLoan),
+                typeof(FakeCatalogContext),
+                "loan"
+            ),
+        };
+
+        var result = CrossSchemaGuards.EdgeManifestIsValid(edges);
+
+        result.Passed.Should().BeFalse();
+        result.Offenders.Should().Contain(o => o.Contains("must expose DbSet<FakeLoan>"));
+    }
+
+    #endregion
+
+    #region AddCrossSchemaLoader
+
+    [Test]
+    public void AddCrossSchemaLoader_registers_the_closed_loader()
+    {
+        var services = new ServiceCollection();
+
+        services.AddCrossSchemaLoader<FakeCatalogContext, FakeBook>();
+
+        services
+            .Any(d => d.ServiceType == typeof(CrossSchemaLoader<FakeCatalogContext, FakeBook>))
+            .Should()
+            .BeTrue();
     }
 
     #endregion
