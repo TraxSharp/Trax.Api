@@ -143,8 +143,7 @@ public class ExposureAuthorizationRuleTests
         // None is not a violation, so it has no message. Callers guard against it; the
         // defensive arm exists so a future enum value cannot silently produce an empty
         // string. Pinning it keeps the contract explicit.
-        var act = () =>
-            ExposureAuthorizationRule.BuildMessage("x", "y", ExposureViolation.None);
+        var act = () => ExposureAuthorizationRule.BuildMessage("x", "y", ExposureViolation.None);
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
