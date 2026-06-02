@@ -12,7 +12,7 @@ namespace Trax.Api.Tests;
 /// <c>[TraxQuery]</c>/<c>[TraxMutation]</c> train must declare <c>[TraxAuthorize]</c> or
 /// <c>[TraxAllowAnonymous]</c> (never both); <c>[TraxAllowAnonymous]</c> is contradictory once
 /// the endpoint is gated via <c>RequireAuthorization()</c>. The decision matrix itself is pinned
-/// in <see cref="ExposureAuthorizationRuleTests"/>; these tests verify the wiring — that the
+/// in <see cref="ExposureAuthorizationRuleTests"/>; these tests verify the wiring: that the
 /// validation runs, reads the endpoint posture, and lists every offending train.
 /// </summary>
 [TestFixture]
