@@ -60,7 +60,7 @@
 
   <!-- Third-party packages, pinned to exact resolved versions. -->
   <ItemGroup>
-    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="2.0.2" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
     <PackageVersion Include="GraphQL" Version="8.8.4" />
