@@ -6,4 +6,10 @@
     <RepositoryUrl>https://github.com/TraxSharp/Trax.Api</RepositoryUrl>
     <PackageProjectUrl>https://traxsharp.net</PackageProjectUrl>
   </PropertyGroup>
+
+  <!-- Deterministic/reproducible builds. CI source-path normalization
+       (ContinuousIntegrationBuild) is turned on by the package only when CI is detected. -->
+  <ItemGroup>
+    <PackageReference Include="DotNet.ReproducibleBuilds" PrivateAssets="All" />
+  </ItemGroup>
 </Project>
