@@ -47,6 +47,7 @@ namespace Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder AddTypeExtensions(params System.Reflection.Assembly[] assemblies) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder AddTypeModule<TTypeModule>()
             where TTypeModule : HotChocolate.Execution.Configuration.TypeModule { }
+        public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder AllowAnonymousOperations() { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder AllowIntrospection(System.Predicate<Microsoft.AspNetCore.Http.HttpContext> predicate) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder ConfigureCost(System.Action<HotChocolate.CostAnalysis.CostOptions> configure) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder ConfigureFiltering(System.Func<Trax.Api.GraphQL.Configuration.TraxFilterBuilder.TraxFilterBuilder, Trax.Api.GraphQL.Configuration.TraxFilterBuilder.TraxFilterBuilder> configure) { }
