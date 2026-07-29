@@ -43,7 +43,11 @@ public class DataChangeSubscriptionTests
 
         Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
             services,
-            graphql => graphql.ExposeOperationQueries().ExposeOperationMutations()
+            graphql =>
+                graphql
+                    .ExposeOperationQueries()
+                    .ExposeOperationMutations()
+                    .AllowAnonymousOperations()
         );
 
         _provider = services.BuildServiceProvider();
