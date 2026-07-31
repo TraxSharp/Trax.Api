@@ -49,6 +49,14 @@
       Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
     />
     <PackageVersion
+      Include="Trax.Effect.StateMachine"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+    />
+    <PackageVersion
+      Include="Trax.Effect.StateMachine.Persistence"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+    />
+    <PackageVersion
       Include="Trax.Mediator"
       Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.20.0'))"
     />
