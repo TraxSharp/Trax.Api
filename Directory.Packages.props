@@ -22,39 +22,39 @@
     />
     <PackageVersion
       Include="Trax.Effect"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.Data"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.Data.InMemory"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.Data.Postgres"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.Data.Sqlite"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.Provider.Json"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.Provider.Parameter"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.StateMachine"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Effect.StateMachine.Persistence"
-      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.43.0'))"
+      Version="$([MSBuild]::ValueOrDefault('$(TraxLocalVersion)', '1.44.1'))"
     />
     <PackageVersion
       Include="Trax.Mediator"
@@ -81,20 +81,20 @@
     <PackageVersion Include="HotChocolate.Data" Version="15.1.17" />
     <PackageVersion Include="HotChocolate.Data.EntityFramework" Version="15.1.17" />
     <PackageVersion Include="HotChocolate.Execution" Version="15.1.17" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageVersion
       Include="Microsoft.Extensions.DependencyInjection.Abstractions"
-      Version="10.0.9"
+      Version="10.0.10"
     />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="NUnit" Version="4.6.1" />
