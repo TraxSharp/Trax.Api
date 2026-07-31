@@ -31,8 +31,9 @@ public static class E2EHost
 {
     public const string AdminApiKey = "sm-e2e-admin-key";
 
+    // The always-present `postgres` maintenance database (local docker-compose and CI differ on app dbs).
     private const string Maintenance =
-        "Host=localhost;Port=5432;Username=trax;Password=trax123;Database=trax;Include Error Detail=true";
+        "Host=localhost;Port=5432;Username=trax;Password=trax123;Database=postgres;Include Error Detail=true";
 
     public static string ConnectionString(string database) =>
         $"Host=localhost;Port=5432;Username=trax;Password=trax123;Database={database};"
