@@ -1,5 +1,6 @@
 using System.Reflection;
 using HotChocolate.Data;
+using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Types;
 using HotChocolate.Validation;
@@ -431,6 +432,10 @@ public static class GraphQLServiceExtensions
             }
         );
 
+        // Recorded so TraxSubscriptionAuthWiringValidator can tell, once the container is
+        // complete, whether a scheme was registered too late to be seen here.
+        var wiredSocketInterceptors = new List<string>();
+
         // G5 — Subscription auth interceptors. Browsers cannot attach headers to
         // WebSocket upgrades, so each auth scheme registers an interceptor that
         // reads the credential from the connection_init payload. Wired only when
@@ -448,6 +453,7 @@ public static class GraphQLServiceExtensions
             graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.ITraxPrincipalResolver<string>>();
             graphqlBuilder.BridgeApplicationService<ILogger<TraxApiKeySocketInterceptor>>();
             graphqlBuilder.AddSocketSessionInterceptor<TraxApiKeySocketInterceptor>();
+            wiredSocketInterceptors.Add(nameof(TraxApiKeySocketInterceptor));
         }
 
         // A multi-scheme JWT dispatcher routes subscription auth by the token's
@@ -464,6 +470,7 @@ public static class GraphQLServiceExtensions
             graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
             graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtDispatcherSocketInterceptor>>();
             graphqlBuilder.AddSocketSessionInterceptor<TraxJwtDispatcherSocketInterceptor>();
+            wiredSocketInterceptors.Add(nameof(TraxJwtDispatcherSocketInterceptor));
         }
         else if (
             services.Any(sd =>
@@ -476,7 +483,18 @@ public static class GraphQLServiceExtensions
             graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.ITraxPrincipalResolver<Trax.Api.Auth.Jwt.JwtTokenInput>>();
             graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtSocketInterceptor>>();
             graphqlBuilder.AddSocketSessionInterceptor<TraxJwtSocketInterceptor>();
+            wiredSocketInterceptors.Add(nameof(TraxJwtSocketInterceptor));
         }
+
+        // Registration order decides which interceptor above was wired, so assert at startup
+        // that every registered scheme actually got one instead of letting subscriptions fall
+        // through to HotChocolate's accept-everything default.
+        services.AddHostedService(sp => new TraxSubscriptionAuthWiringValidator(
+            sp.GetRequiredService<IServiceProviderIsService>(),
+            sp.GetRequiredService<IRequestExecutorProvider>(),
+            SchemaName,
+            wiredSocketInterceptors
+        ));
 
         // G7 — HTTP execution authorization. Wired when the builder opted in via
         // RequireAuthorization(). The interceptor only runs for GraphQL execution
