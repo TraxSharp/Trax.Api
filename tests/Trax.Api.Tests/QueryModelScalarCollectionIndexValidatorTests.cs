@@ -40,9 +40,50 @@ public class QueryModelScalarCollectionIndexValidatorTests
     {
         var warnings = await RunValidatorAsync<IndexProbeDbContext>();
 
-        // Exactly one warning across the whole model, and it is the un-indexed property.
-        // If the indexed collection also warned, this would be two.
-        warnings.Should().ContainSingle().Which.Should().Contain("Loose");
+        // Two warnings across the whole model: the un-indexed collection and the
+        // btree-indexed one. If the GIN-indexed collection also warned, this would be
+        // three, and if the scalar or navigation properties warned, more still.
+        warnings.Should().HaveCount(2);
+        warnings.Should().Contain(w => w.Contains("Loose"));
+    }
+
+    [Test]
+    public async Task NonGinIndexedScalarCollection_StillLogsWarning()
+    {
+        // A plain HasIndex(...) is a btree. It cannot serve `@>` any more than no index
+        // can, and it does not make Npgsql emit `@>` either, so it still needs saying.
+        var warnings = await RunValidatorAsync<IndexProbeDbContext>();
+
+        warnings.Should().Contain(w => w.Contains("Btree"));
+    }
+
+    [Test]
+    public async Task UnresolvableDbContext_DoesNotThrow()
+    {
+        // A query model whose DbContext is not in DI is a host misconfiguration that
+        // other startup paths report. This validator is advisory and must not be what
+        // takes the host down.
+        var recorder = new RecordingLoggerProvider();
+
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddProvider(recorder).SetMinimumLevel(LogLevel.Warning));
+
+        var builder = new TraxGraphQLBuilder(services);
+        builder.AddDbContext<IndexProbeDbContext>();
+        var config = builder.Build();
+        services.AddSingleton(config);
+
+        await using var provider = services.BuildServiceProvider();
+
+        var validatorType = typeof(GraphQLConfiguration).Assembly.GetType(
+            "Trax.Api.GraphQL.Startup.QueryModelScalarCollectionIndexValidator"
+        )!;
+        var validator = (IHostedService)ActivatorUtilities.CreateInstance(provider, validatorType);
+
+        var act = async () => await validator.StartAsync(CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+        recorder.Messages.Should().BeEmpty();
     }
 
     [Test]
@@ -163,6 +204,7 @@ public class IndexedRow
     public int Id { get; set; }
     public string Title { get; set; } = "";
     public string[] Tight { get; set; } = [];
+    public string[] Btree { get; set; } = [];
     public List<ChapterRow> Chapters { get; set; } = [];
 }
 
@@ -191,8 +233,12 @@ public class IndexProbeDbContext : DbContext
     protected override void OnConfiguring(DbContextOptionsBuilder options) =>
         options.UseNpgsql("Host=localhost;Database=probe;Username=probe;Password=probe");
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
         modelBuilder.Entity<IndexedRow>().HasIndex(r => r.Tight).HasMethod("gin");
+        // Indexed, but not with a method that can serve array containment.
+        modelBuilder.Entity<IndexedRow>().HasIndex(r => r.Btree);
+    }
 }
 
 public class InMemoryProbeDbContext : DbContext

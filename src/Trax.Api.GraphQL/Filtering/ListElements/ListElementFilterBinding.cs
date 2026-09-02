@@ -164,7 +164,13 @@ internal static class ListElementFilterBinding
 
     private static Type? BuildElementFilterType(Type element)
     {
-        var underlying = Nullable.GetUnderlyingType(element);
+        // Nullable elements are left on HotChocolate's stock input. The C# `struct`
+        // constraint on ComparableOperationFilterInputType<T> means "non-nullable value
+        // type", so Nullable<T> cannot close it, and a nullable enum has no non-nullable
+        // enum filter to derive from either. Binding one throws at startup rather than
+        // producing a restricted type, so these keep the stock behaviour instead.
+        if (Nullable.GetUnderlyingType(element) is not null)
+            return null;
 
         if (element.IsEnum)
             return typeof(EnumListElementFilterInputType<>).MakeGenericType(element);
@@ -175,12 +181,9 @@ internal static class ListElementFilterBinding
         if (element == typeof(bool))
             return typeof(BooleanListElementFilterInputType);
 
-        // Nullable value types stay nullable in the filter input so `eq: null` keeps
-        // working; Nullable<T> is itself a struct, so the comparable constraint holds.
-        if (element.IsValueType && (ComparableScalars.Contains(underlying ?? element)))
+        if (element.IsValueType && ComparableScalars.Contains(element))
             return typeof(ComparableListElementFilterInputType<>).MakeGenericType(element);
 
-        // A nullable enum has no non-nullable enum filter to derive from; leave it stock.
         return null;
     }
 }

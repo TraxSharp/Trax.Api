@@ -47,7 +47,7 @@ public class ListElementFilterTests
     {
         var schema = await BuildSchemaAsync();
 
-        var element = schema.Types.GetType<InputObjectType>("BadgeListElementFilterInput");
+        var element = schema.Types.GetType<InputObjectType>("BadgeElementFilterInput");
         var names = element.Fields.Select(f => f.Name).ToHashSet();
 
         names.Should().NotContain("neq");
@@ -73,7 +73,7 @@ public class ListElementFilterTests
         // change is the missing `neq` on the element type.
         var schema = await BuildSchemaAsync();
 
-        var list = schema.Types.GetType<InputObjectType>("ListBadgeOperationFilterInput");
+        var list = schema.Types.GetType<InputObjectType>("ListBadgeElementFilterInput");
 
         list.Fields.Select(f => f.Name).Should().BeEquivalentTo(["all", "none", "some", "any"]);
     }
@@ -83,12 +83,12 @@ public class ListElementFilterTests
     {
         var schema = await BuildSchemaAsync();
 
-        var stringElement = schema.Types.GetType<InputObjectType>("StringListElementFilterInput");
+        var stringElement = schema.Types.GetType<InputObjectType>("StringElementFilterInput");
         var stringNames = stringElement.Fields.Select(f => f.Name).ToHashSet();
         stringNames.Should().NotContain("neq");
         stringNames.Should().Contain(["eq", "contains", "startsWith", "in"]);
 
-        var intElement = schema.Types.GetType<InputObjectType>("IntListElementFilterInput");
+        var intElement = schema.Types.GetType<InputObjectType>("IntElementFilterInput");
         var intNames = intElement.Fields.Select(f => f.Name).ToHashSet();
         intNames.Should().NotContain("neq");
         // Comparable operators translate inside a collection and must survive.
@@ -106,7 +106,7 @@ public class ListElementFilterTests
             .Types.GetType<InputObjectType>("PlayerRowFilterInput")
             .Fields.Single(f => f.Name == "legacyBadges");
 
-        field.Type.NamedType().Name.Should().Be("ListBadgeOperationFilterInput");
+        field.Type.NamedType().Name.Should().Be("ListBadgeElementFilterInput");
     }
 
     [Test]
@@ -131,6 +131,122 @@ public class ListElementFilterTests
             .Fields.Select(f => f.Name)
             .Should()
             .Contain("neq");
+    }
+
+    #endregion
+
+    #region Schema — every scalar element kind on one entity
+
+    // Each bound element type produces its own closed generic filter type, so the names
+    // have to be unique across the whole schema. Stock HotChocolate shares one input
+    // between float[] and double[] (both are the GraphQL Float scalar) and between
+    // DateTime[] and DateTimeOffset[]; the restricted types cannot, and naming them after
+    // the GraphQL scalar made the schema fail to build with "The name
+    // `ListFloatOperationFilterInput` was already registered by another type".
+
+    [Test]
+    public async Task Schema_EveryScalarElementKind_BuildsWithoutNameCollision()
+    {
+        // Reaching the schema at all is the assertion: a duplicate name throws
+        // SchemaException during build and the host never starts.
+        var schema = await BuildSchemaAsync<AllScalarKindsDbContext>();
+
+        schema.Types.GetType<InputObjectType>("AllScalarKindsRowFilterInput").Should().NotBeNull();
+    }
+
+    [Test]
+    public async Task Schema_AliasedScalarPairs_GetDistinctInputTypes()
+    {
+        var schema = await BuildSchemaAsync<AllScalarKindsDbContext>();
+
+        var filterInput = schema.Types.GetType<InputObjectType>("AllScalarKindsRowFilterInput");
+
+        string ListTypeOf(string field) =>
+            filterInput.Fields.Single(f => f.Name == field).Type.NamedType().Name;
+
+        // The pairs stock HotChocolate would have collapsed onto one name.
+        ListTypeOf("floats").Should().NotBe(ListTypeOf("doubles"));
+        ListTypeOf("stamps").Should().NotBe(ListTypeOf("offsets"));
+    }
+
+    [Test]
+    public async Task Schema_EveryScalarElementKind_DropsNeqAndKeepsTheRest()
+    {
+        var schema = await BuildSchemaAsync<AllScalarKindsDbContext>();
+
+        var elementInputs = schema
+            .Types.OfType<InputObjectType>()
+            // The list wrappers share the suffix but hold all/none/some/any, not operations.
+            .Where(t => t.Name.EndsWith("ElementFilterInput") && !t.Name.StartsWith("List"))
+            .ToList();
+
+        // One per distinct bound element type on the entity.
+        elementInputs.Should().HaveCountGreaterThan(8);
+
+        foreach (var input in elementInputs)
+        {
+            var names = input.Fields.Select(f => f.Name).ToHashSet();
+            names.Should().NotContain("neq", $"{input.Name} is an element input");
+            names.Should().Contain("eq", $"{input.Name} must keep the operations that translate");
+        }
+    }
+
+    [Test]
+    public async Task Schema_NullableElement_KeepsStockInputAndIsNotRestricted()
+    {
+        // Nullable<T> cannot close ComparableOperationFilterInputType<T> (the `struct`
+        // constraint excludes it), so these keep HotChocolate's stock element input,
+        // `neq` included. Binding one used to throw at startup.
+        var schema = await BuildSchemaAsync<AllScalarKindsDbContext>();
+
+        var listType = schema
+            .Types.GetType<InputObjectType>("AllScalarKindsRowFilterInput")
+            .Fields.Single(f => f.Name == "optionalScores")
+            .Type.NamedType()
+            .Name;
+
+        var element = schema
+            .Types.GetType<InputObjectType>(listType)
+            .Fields.Single(f => f.Name == "some")
+            .Type.NamedType()
+            .Name;
+
+        element.Should().NotEndWith("ElementFilterInput");
+        schema
+            .Types.GetType<InputObjectType>(element)
+            .Fields.Select(f => f.Name)
+            .Should()
+            .Contain("neq");
+    }
+
+    [Test]
+    public void Discover_NullableElement_IsNotBound()
+    {
+        var bindings = ListElementFilterBinding.Discover([typeof(AllScalarKindsRow)]);
+
+        bindings.Should().NotContain(b => b.Key == typeof(int?[]));
+        // The non-nullable twin on the same entity still binds.
+        bindings.Should().Contain(b => b.Key == typeof(int[]));
+    }
+
+    [Test]
+    public async Task Schema_RestrictedTypes_DoNotReuseHotChocolateStockNames()
+    {
+        // A collection whose element cannot be restricted keeps the stock types, so a
+        // restricted type must never claim a stock name. int[] (restricted) and int?[]
+        // (stock) coexisting used to fail with "The name `ListIntOperationFilterInput`
+        // was already registered by another type".
+        var schema = await BuildSchemaAsync<AllScalarKindsDbContext>();
+
+        var restricted = schema
+            .Types.OfType<InputObjectType>()
+            .Where(t => t.Name.EndsWith("ElementFilterInput"))
+            .Select(t => t.Name)
+            .ToList();
+
+        restricted.Should().NotBeEmpty();
+        restricted.Should().OnlyContain(n => !n.EndsWith("OperationFilterInput"));
+        restricted.Should().OnlyHaveUniqueItems();
     }
 
     #endregion
@@ -494,7 +610,7 @@ public class ListElementFilterTests
             .GetRequiredService<IRequestExecutorProvider>()
             .GetExecutorAsync("trax");
 
-        var element = executor.Schema.Types.GetType<InputObjectType>("BadgeListElementFilterInput");
+        var element = executor.Schema.Types.GetType<InputObjectType>("BadgeElementFilterInput");
         element.Fields.Select(f => f.Name).Should().NotContain("neq");
 
         var scalar = executor.Schema.Types.GetType<InputObjectType>("BadgeOperationFilterInput");
@@ -518,7 +634,7 @@ public class ListElementFilterTests
             .Contain("icontains");
 
         executor
-            .Schema.Types.GetType<InputObjectType>("BadgeListElementFilterInput")
+            .Schema.Types.GetType<InputObjectType>("BadgeElementFilterInput")
             .Fields.Select(f => f.Name)
             .Should()
             .NotContain("neq");
@@ -804,6 +920,34 @@ public class Shelf
 {
     public int Id { get; set; }
     public List<Book> Books { get; set; } = [];
+}
+
+[TraxAllowAnonymous]
+[TraxQueryModel(Name = "allScalarKinds")]
+public class AllScalarKindsRow
+{
+    public int Id { get; set; }
+
+    public short[] Shorts { get; set; } = [];
+    public int[] Scores { get; set; } = [];
+    public int?[] OptionalScores { get; set; } = [];
+    public long[] Counts { get; set; } = [];
+    public List<byte> Bytes { get; set; } = [];
+    public float[] Floats { get; set; } = [];
+    public double[] Doubles { get; set; } = [];
+    public decimal[] Amounts { get; set; } = [];
+    public bool[] Flags { get; set; } = [];
+    public string[] Tags { get; set; } = [];
+    public Guid[] Keys { get; set; } = [];
+    public DateTime[] Stamps { get; set; } = [];
+    public DateTimeOffset[] Offsets { get; set; } = [];
+    public Badge[] Badges { get; set; } = [];
+}
+
+public class AllScalarKindsDbContext(DbContextOptions<AllScalarKindsDbContext> options)
+    : DbContext(options)
+{
+    public DbSet<AllScalarKindsRow> Rows => Set<AllScalarKindsRow>();
 }
 
 public class PlayersDbContext(DbContextOptions<PlayersDbContext> options) : DbContext(options)

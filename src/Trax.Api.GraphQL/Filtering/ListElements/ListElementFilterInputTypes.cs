@@ -34,35 +34,48 @@ namespace Trax.Api.GraphQL.Filtering.ListElements;
 internal static class ListElementFilterNaming
 {
     /// <summary>
-    /// The GraphQL name HotChocolate gives a scalar's stock filter input, so the list
-    /// wrapper can keep the stock <c>List{Scalar}OperationFilterInput</c> name and the
-    /// only visible schema change is the missing <c>neq</c>.
+    /// A stable, unique name for an element type, used to build the filter input names.
     /// </summary>
+    /// <remarks>
+    /// It has to be injective over the element types that get bound, because each one
+    /// produces its own closed generic filter type and two types cannot share a GraphQL
+    /// name. That is why <c>double</c> and <c>DateTimeOffset</c> do not reuse the
+    /// <c>Float</c> / <c>DateTime</c> names HotChocolate gives them by default: stock
+    /// HotChocolate can share one input type between <c>float[]</c> and <c>double[]</c>,
+    /// but the restricted element types are distinct CLR types and would collide.
+    /// </remarks>
     public static string ScalarName(Type type)
     {
-        var underlying = Nullable.GetUnderlyingType(type) ?? type;
-
-        return underlying switch
+        return type switch
         {
-            _ when underlying == typeof(int) => "Int",
-            _ when underlying == typeof(short) => "Short",
-            _ when underlying == typeof(long) => "Long",
-            _ when underlying == typeof(byte) => "Byte",
-            _ when underlying == typeof(float) => "Float",
-            _ when underlying == typeof(double) => "Float",
-            _ when underlying == typeof(decimal) => "Decimal",
-            _ when underlying == typeof(bool) => "Boolean",
-            _ when underlying == typeof(string) => "String",
-            _ when underlying == typeof(Guid) => "UUID",
-            _ when underlying == typeof(DateTime) => "DateTime",
-            _ when underlying == typeof(DateTimeOffset) => "DateTime",
-            _ => underlying.Name,
+            _ when type == typeof(int) => "Int",
+            _ when type == typeof(short) => "Short",
+            _ when type == typeof(long) => "Long",
+            _ when type == typeof(byte) => "Byte",
+            _ when type == typeof(float) => "Float",
+            _ when type == typeof(double) => "Double",
+            _ when type == typeof(decimal) => "Decimal",
+            _ when type == typeof(bool) => "Boolean",
+            _ when type == typeof(string) => "String",
+            _ when type == typeof(Guid) => "UUID",
+            _ when type == typeof(DateTime) => "DateTime",
+            _ => type.Name,
         };
     }
 
-    /// <summary>The element input's name, distinct from the scalar input's name.</summary>
+    /// <summary>
+    /// The element input's name. Deliberately outside HotChocolate's
+    /// <c>{Scalar}OperationFilterInput</c> / <c>List{Scalar}OperationFilterInput</c>
+    /// namespace: a collection whose element cannot be restricted (a nullable one) keeps
+    /// the stock types, and reusing a stock name for a restricted type would collide with
+    /// it at schema build.
+    /// </summary>
     public static string ElementTypeName(Type elementType) =>
-        ScalarName(elementType) + "ListElementFilterInput";
+        ScalarName(elementType) + "ElementFilterInput";
+
+    /// <summary>The list input's name, wrapping <see cref="ElementTypeName"/>.</summary>
+    public static string ListTypeName(Type elementType) =>
+        "List" + ScalarName(elementType) + "ElementFilterInput";
 }
 
 /// <summary>
@@ -79,9 +92,7 @@ internal sealed class ListElementFilterInputType<TElement, TElementFilter>
     protected override void Configure(IFilterInputTypeDescriptor descriptor)
     {
         base.Configure(descriptor);
-        descriptor.Name(
-            "List" + ListElementFilterNaming.ScalarName(typeof(TElement)) + "OperationFilterInput"
-        );
+        descriptor.Name(ListElementFilterNaming.ListTypeName(typeof(TElement)));
     }
 }
 
