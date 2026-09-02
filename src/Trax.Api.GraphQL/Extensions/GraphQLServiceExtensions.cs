@@ -243,7 +243,7 @@ public static class GraphQLServiceExtensions
                 // HotChocolate 16 activates interceptors out of the schema container,
                 // which no longer forwards to the application container. Bridge the
                 // ASP.NET Core services the interceptor needs across the boundary.
-                graphqlBuilder.BridgeApplicationService<IAuthenticationSchemeProvider>(services);
+                graphqlBuilder.BridgeApplicationService<IAuthenticationSchemeProvider>();
                 graphqlBuilder.AddHttpRequestInterceptor<QueryModelAuthenticationInterceptor>();
                 services.AddHostedService<QueryModelAuthorizationValidator>();
             }
@@ -445,10 +445,8 @@ public static class GraphQLServiceExtensions
             )
         )
         {
-            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.ITraxPrincipalResolver<string>>(
-                services
-            );
-            graphqlBuilder.BridgeApplicationService<ILogger<TraxApiKeySocketInterceptor>>(services);
+            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.ITraxPrincipalResolver<string>>();
+            graphqlBuilder.BridgeApplicationService<ILogger<TraxApiKeySocketInterceptor>>();
             graphqlBuilder.AddSocketSessionInterceptor<TraxApiKeySocketInterceptor>();
         }
 
@@ -458,17 +456,13 @@ public static class GraphQLServiceExtensions
         // JWT resolver is present.
         if (services.Any(sd => sd.ServiceType == typeof(Trax.Api.Auth.Jwt.JwtDispatcherRuntime)))
         {
-            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.Jwt.JwtDispatcherRuntime>(
-                services
-            );
-            graphqlBuilder.BridgeApplicationService<IOptionsMonitor<JwtBearerOptions>>(services);
+            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.Jwt.JwtDispatcherRuntime>();
+            graphqlBuilder.BridgeApplicationService<IOptionsMonitor<JwtBearerOptions>>();
             // The dispatcher resolves scoped principal resolvers by scheme name, so it
             // needs the application container itself rather than one bridged service.
             services.TryAddSingleton(sp => new TraxApplicationServices(sp));
-            graphqlBuilder.AddApplicationService<TraxApplicationServices>();
-            graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtDispatcherSocketInterceptor>>(
-                services
-            );
+            graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
+            graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtDispatcherSocketInterceptor>>();
             graphqlBuilder.AddSocketSessionInterceptor<TraxJwtDispatcherSocketInterceptor>();
         }
         else if (
@@ -478,11 +472,9 @@ public static class GraphQLServiceExtensions
             )
         )
         {
-            graphqlBuilder.BridgeApplicationService<IOptionsMonitor<JwtBearerOptions>>(services);
-            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.ITraxPrincipalResolver<Trax.Api.Auth.Jwt.JwtTokenInput>>(
-                services
-            );
-            graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtSocketInterceptor>>(services);
+            graphqlBuilder.BridgeApplicationService<IOptionsMonitor<JwtBearerOptions>>();
+            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.ITraxPrincipalResolver<Trax.Api.Auth.Jwt.JwtTokenInput>>();
+            graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtSocketInterceptor>>();
             graphqlBuilder.AddSocketSessionInterceptor<TraxJwtSocketInterceptor>();
         }
 
@@ -491,8 +483,8 @@ public static class GraphQLServiceExtensions
         // requests, so the BCP tool page and schema introspection stay reachable.
         if (config.AuthorizationRequired)
         {
-            graphqlBuilder.BridgeApplicationService<IAuthorizationService>(services);
-            graphqlBuilder.BridgeApplicationService<GraphQLConfiguration>(services);
+            graphqlBuilder.BridgeApplicationService<IAuthorizationService>();
+            graphqlBuilder.BridgeApplicationService<GraphQLConfiguration>();
             graphqlBuilder.AddHttpRequestInterceptor<TraxGraphQLAuthInterceptor>();
             services.AddHostedService<TraxGraphQLAuthPolicyValidator>();
         }
