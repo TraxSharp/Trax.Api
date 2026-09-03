@@ -10,12 +10,12 @@
       },
       "GraphQL": {
         "type": "Direct",
-        "requested": "[8.8.4, )",
-        "resolved": "8.8.4",
-        "contentHash": "Ey/3R5ydkfriUG6PXiZPdeGkyLADQ/wZMgDBtHto5ZvSv+PtzpOD8YX0WAFvW3SA7Ldvwzw5S3RVBSB97imANA==",
+        "requested": "[8.8.5, )",
+        "resolved": "8.8.5",
+        "contentHash": "0dnaIzuzyRkpUfCBOWRLOnbTWcTpvK0pvWjgDTYoU3k/bu4Us1jkid7MPBhcth8I+6rg8SxhXFwNEenx53xUJg==",
         "dependencies": {
           "GraphQL-Parser": "9.5.0",
-          "GraphQL.Analyzers": "8.8.4"
+          "GraphQL.Analyzers": "8.8.5"
         }
       },
       "GraphQL.Client": {
@@ -40,17 +40,17 @@
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Direct",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "z/2xXlFw2aLGjHyEm6E0tQ+In6VfzQzTrtArbQ2c0TQE16ZbyDCMGPvaUT9I0s8rgy9sRWlU2P9waW37qV04qA=="
+        "requested": "[10.0.11, )",
+        "resolved": "10.0.11",
+        "contentHash": "/a1aJz4m7ylhEDf25ugQChLQoN5XwoGjWw/BoR/ZWWKsO1v4DdJElS1uyngahz4B/eOzjFk1KNTkarRLE5wsIg=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "zkFxGYUvdxAvIKTyXHrmW+Sux53D4SezD9dMyZ6hrwwzPQJNuwCRy1f5W7AvYTqacEGhWF2XderRQG1OvbV8og==",
+        "requested": "[10.0.11, )",
+        "resolved": "10.0.11",
+        "contentHash": "Ljd0Uxoq5XpScD2Bg0nM/r3mwx7Ao5Uq24eo2ARxbGvqJ7Zht6rt2cJtwVRH4Cv+1ZVMdXz6TB43KbpmsxRrvQ==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.11"
         }
       },
       "GraphQL-Parser": {
@@ -60,8 +60,8 @@
       },
       "GraphQL.Analyzers": {
         "type": "Transitive",
-        "resolved": "8.8.4",
-        "contentHash": "uzsOFK6wKUjefBhejWX6bzomjAM2tgqFWdjvTK26skYzGZPqA9r4Ra+AeOR3aARWlQetmB1T7nG5fIMfZfyLQw=="
+        "resolved": "8.8.5",
+        "contentHash": "2pmvrDAPbjNZfl7CB19cKpQ5y92A+tb1aPVZepz46KTx00/7nTojBTL9iJAOFVoKbq0I0sdZjj60aJLFKY/z8Q=="
       },
       "GraphQL.Client.Abstractions": {
         "type": "Transitive",
