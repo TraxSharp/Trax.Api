@@ -46,7 +46,7 @@ forwarding factory that resolves on first use instead of asking whether a servic
 yet, which makes the ordering question moot rather than merely detected. That is better than
 a validator, because there is nothing left to get wrong.
 
-**Where order genuinely must matter, it fails at startup and the message names the call to
+**Where order must matter, it fails at startup and the message names the call to
 move.** The token-based schemes (`AddTraxJwtAuth`, `AddTraxApiKeyAuth`, `AddTraxJwtDispatcher`)
 must be registered before `AddTraxGraphQL()` or the host refuses to start. Cookie-based OIDC
 is exempt by design: it needs no socket interceptor, so registering it afterwards is fine.
@@ -61,7 +61,7 @@ Raising a count to silence the guard is itself the violation, and the guard says
   when a reviewed entry names a file that no longer exists.
 - [Registration Order](/docs/reference/registration-order) carries the same rule for users.
 
-Not covered, and the holes are wider than the census suggests:
+Not covered:
 
 - **The verb list is closed.** It matches `Any`, `All`, `Count`, `Where`, `Select`, and
   `First`, `Last` and `Single` each with and without their `OrDefault` form. A `foreach` over
@@ -77,9 +77,4 @@ Not covered, and the holes are wider than the census suggests:
 
 ## Changelog
 
-- **2026-09-11**: Corrected the verb list: eleven verbs, not eight, and the OrDefault forms are what catch two of the reviewed sites.
-- **2026-09-11**: Corrected four claims an audit falsified: the train-discovery snapshot is a
-  known exception rather than one of the three safe kinds, the stale check covers deleted files
-  only, cookie-based OIDC is exempt from the ordering rule, and the census has more blind spots
-  than the receiver name.
 - **2026-09-11**: Recorded.

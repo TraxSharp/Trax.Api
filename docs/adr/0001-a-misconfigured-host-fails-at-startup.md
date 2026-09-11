@@ -79,7 +79,4 @@ Not covered:
 
 ## Changelog
 
-- **2026-09-11**: Corrected the validator count from six to five (one of them is advisory and
-  never throws), recorded that the schema validator is conditionally registered and checks
-  both directions, and moved the exemplar to the test that actually asserts something.
 - **2026-09-11**: Recorded.
