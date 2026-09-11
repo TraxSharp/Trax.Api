@@ -20,7 +20,7 @@ if your work contradicts one, say so rather than silently overriding it.
 | subscriptions or socket auth | both, in that order. This is where the silent failure happened |
 
 Decisions binding more than one repo live in the central corpus at `Trax.Docs/adr/`, whose
-index lists them by repo. Nine name `api`: executable guards, exact version pinning, the
+index lists them by repo. Ten name `api`: executable guards, exact version pinning, the
 dependency direction, the three test conventions, the canonical train name being the
 interface FullName, the documentation lints, and feature-package tables shipping in the core
 provider migration set. In a workspace checkout the index is at `../Trax.Docs/adr/README.md`; that path

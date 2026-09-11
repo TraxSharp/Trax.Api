@@ -63,9 +63,10 @@ Raising a count to silence the guard is itself the violation, and the guard says
 
 Not covered, and the holes are wider than the census suggests:
 
-- **The verb list is closed.** It matches `Any`, `All`, `First`, `Last`, `Single`, `Where`,
-  `Select` and `Count`. A `foreach` over the collection, `Contains`, `IndexOf`, `OfType<T>()`
-  or an indexer is invisible, and `TrainDiscoveryService` uses exactly the `foreach` form.
+- **The verb list is closed.** It matches `Any`, `All`, `Count`, `Where`, `Select`, and
+  `First`, `Last` and `Single` each with and without their `OrDefault` form. A `foreach` over
+  the collection, `Contains`, `IndexOf`, `OfType<T>()` or an indexer is invisible, and
+  `TrainDiscoveryService` uses exactly the `foreach` form.
 - **The receiver must be named `services` or `Services`.** A field-backed `_services` or any
   other name is not seen. A helper taking a parameter named `services` *is* counted, which is
   how the train-discovery resolver got into the list.
@@ -76,6 +77,7 @@ Not covered, and the holes are wider than the census suggests:
 
 ## Changelog
 
+- **2026-09-11**: Corrected the verb list: eleven verbs, not eight, and the OrDefault forms are what catch two of the reviewed sites.
 - **2026-09-11**: Corrected four claims an audit falsified: the train-discovery snapshot is a
   known exception rather than one of the three safe kinds, the stale check covers deleted files
   only, cookie-based OIDC is exempt from the ordering rule, and the census has more blind spots
