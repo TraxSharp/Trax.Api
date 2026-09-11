@@ -31,8 +31,6 @@ namespace Trax.Api.Tests.AuthE2E;
 /// That's a fine outcome — the host still fails to start, the security
 /// posture holds — but it does not exercise the validator's code path.
 /// </para>
-///
-/// <para>Enforces <c>docs/adr/0001-a-misconfigured-host-fails-at-startup.md</c>.</para>
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -53,12 +51,7 @@ public class QueryModelAuthorizeSchemaInvariantE2ETests
     public async Task NormalHost_PassesValidator_AndHostStartsSuccessfully()
     {
         using var host = await BuildHostAsync();
-        host.Should()
-            .NotBeNull(
-                "the host started, which means the validator materialised the schema and found "
-                    + "@authorize intact on every gated entity at both type and entry-field level. "
-                    + "See docs/adr/0001-a-misconfigured-host-fails-at-startup.md."
-            );
+        host.Should().NotBeNull();
         // Reaching here means StartAsync completed without the validator
         // throwing — every gated entity passed both type-level and entry-field
         // directive checks against the real, fully-built schema.

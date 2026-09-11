@@ -10,9 +10,17 @@ When a host wires Trax's GraphQL surface wrongly, it throws while starting, with
 naming the call to change. It does not build a schema that looks fine and then fails on the
 request that happens to touch the broken part.
 
-Six validators enforce this, five under `Trax.Api.GraphQL/Startup/` and one alongside the
-authorization code. Each is an `IHostedService`, so it runs after the container is complete
-and sees the truth regardless of the order the host registered anything in.
+**Five** validators enforce it: `QueryModelAuthorizationSchemaValidator`,
+`QueryModelAuthorizationValidator`, `TraxOperationsServiceValidator`,
+`TraxSubscriptionAuthWiringValidator` and `TraxGraphQLAuthPolicyValidator`. Each is an
+`IHostedService`, so it runs after the container is complete and sees the truth regardless
+of the order the host registered anything in, and each names the call to change.
+
+`QueryModelScalarCollectionIndexValidator` sits in the same folder and is **not** one of
+them: it is advisory, logs a warning about a missing GIN index and never blocks startup. A
+query-plan hint is not a misconfiguration. `GraphQLClientStartupValidator` in
+`Trax.Api.GraphQL.Client.Trax` applies the same policy to outbound schema drift, which is a
+different surface and is not counted here either.
 
 ## Status
 
@@ -39,25 +47,39 @@ add is only marginally better than the request-time failure it replaced. `TraxOp
 names `ExposeOperationQueries` and the services to register; the subscription one names the
 ordering to fix.
 
-**Startup cost is paid for real checks.** `QueryModelAuthorizationSchemaValidator`
-materialises the whole schema at boot to re-assert that every `[TraxAuthorize]` entity still
-carries `@authorize` after a consumer's `ConfigureSchema` callback has run. That callback has
-full builder access by design, so it is the one place Trax cannot control, and the check is
-worth the boot time.
+**Startup cost is paid only where there is something to check.**
+`QueryModelAuthorizationSchemaValidator` materialises the whole schema at boot, so it is
+registered only when the host has at least one `[TraxAuthorize]` or `[TraxAllowAnonymous]`
+query model. A host with neither never pays for it.
+
+**It checks both directions.** A gated entity that lost `@authorize` fails the host, and so
+does an anonymous one that gained it. The escape hatch it closes is a consumer's
+`ConfigureSchema` callback, which runs after Trax's own wiring and has full builder access by
+design, so it is the one place Trax cannot control.
 
 ## Exemplars
 
 - `TraxOperationsServiceValidatorTests` pins the fail-fast behaviour for the operations
   surface, including the message.
-- `QueryModelAuthorizeSchemaInvariantE2ETests` builds a real host and asserts the directives
-  survive the full pipeline, which is the defence-in-depth half.
+- `QueryModelAuthorizeSchemaValidatorTests` drives the schema validator directly: it asserts
+  the host throws naming the entity, the type or the entry field when a directive is stripped
+  in each of the three ways, and does not throw when they are intact.
 - [Registration Order](/docs/reference/registration-order) is the user-facing statement of
   what order matters and what happens when it is wrong.
 
-Not covered: nothing checks that a new piece of host configuration *has* a validator. Adding
-a surface that can be half-wired and forgetting the check is invisible to the build, and that
-is the failure mode this ADR is about.
+Not covered:
+
+- Nothing checks that a new piece of host configuration *has* a validator. Adding a surface
+  that can be half-wired and forgetting the check is invisible to the build, and that is the
+  failure mode this ADR is about.
+- `QueryModelAuthorizeSchemaInvariantE2ETests.cs` is the end-to-end half of the same story, but
+  its only assertion is that the host is not null, which cannot fail. It also needs a live
+  Postgres and fails rather than skipping without one. Read it as a smoke test, not as
+  coverage.
 
 ## Changelog
 
+- **2026-09-11**: Corrected the validator count from six to five (one of them is advisory and
+  never throws), recorded that the schema validator is conditionally registered and checks
+  both directions, and moved the exemplar to the test that actually asserts something.
 - **2026-09-11**: Recorded.

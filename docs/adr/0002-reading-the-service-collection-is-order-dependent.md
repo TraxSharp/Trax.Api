@@ -8,11 +8,19 @@ status: accepted
 
 Inspecting the `IServiceCollection` inside a registration extension answers "is this
 registered **yet**", not "will this be registered". Every existing site that does it is
-enumerated with a count and a reason, and each is one of three safe kinds: an idempotency
-guard, a precondition that throws, or a decision paired with a startup validator
+enumerated with a count and a reason. Three kinds are safe: an idempotency guard, a
+precondition that throws, and a decision paired with a startup validator
 ([0001](./0001-a-misconfigured-host-fails-at-startup.md)).
 
 Inspecting the collection is not banned. Being **silently** different because of order is.
+
+**One site is none of the three, and is knowingly accepted.** `AddTraxGraphQL()` snapshots
+train discovery to decide whether `RootQuery` and `RootMutation` get any fields. A
+`[TraxQuery]` train registered afterwards is absent from the schema, with no validator and
+no error. The code says so where it happens. It is tolerated because the established shape
+is `AddTrax(...)` then `AddTraxGraphQL(...)`, with train registration finished inside or
+before `AddTrax`, but it is a real exception to the rule above rather than a fourth safe
+kind.
 
 ## Status
 
@@ -39,8 +47,9 @@ yet, which makes the ordering question moot rather than merely detected. That is
 a validator, because there is nothing left to get wrong.
 
 **Where order genuinely must matter, it fails at startup and the message names the call to
-move.** An auth scheme must be registered before `AddTraxGraphQL()`, and the host refuses to
-start otherwise.
+move.** The token-based schemes (`AddTraxJwtAuth`, `AddTraxApiKeyAuth`, `AddTraxJwtDispatcher`)
+must be registered before `AddTraxGraphQL()` or the host refuses to start. Cookie-based OIDC
+is exempt by design: it needs no socket interceptor, so registering it afterwards is fine.
 
 **The census ratchets one way.** Adding a site means making it safe first and recording why.
 Raising a count to silence the guard is itself the violation, and the guard says so.
@@ -49,14 +58,26 @@ Raising a count to silence the guard is itself the violation, and the guard says
 
 - `NoSilentRegistrationOrderDependenceTests` enumerates every introspection site in `src/`
   with the count it reads at, fails on a new file or a raised count, and separately fails
-  when a reviewed entry names a file that no longer exists, so a cleaned-up site cannot leave
-  a slot for a new one.
+  when a reviewed entry names a file that no longer exists.
 - [Registration Order](/docs/reference/registration-order) carries the same rule for users.
 
-Not covered: the detection is a regex bound to a receiver named `services` or `Services`. A
-collection held under any other name is invisible to the census, and so is a read performed
-through a helper.
+Not covered, and the holes are wider than the census suggests:
+
+- **The verb list is closed.** It matches `Any`, `All`, `First`, `Last`, `Single`, `Where`,
+  `Select` and `Count`. A `foreach` over the collection, `Contains`, `IndexOf`, `OfType<T>()`
+  or an indexer is invisible, and `TrainDiscoveryService` uses exactly the `foreach` form.
+- **The receiver must be named `services` or `Services`.** A field-backed `_services` or any
+  other name is not seen. A helper taking a parameter named `services` *is* counted, which is
+  how the train-discovery resolver got into the list.
+- **It scans this repo's `src/` only.** The largest collection read that `AddTraxGraphQL()`
+  triggers executes in `Trax.Mediator`, where no census exists.
+- **`Trax.Dashboard` ships `AddTraxDashboard()` and reads the collection too**, and has no
+  census at all. The policy is stated workspace-wide; the guard is not.
 
 ## Changelog
 
+- **2026-09-11**: Corrected four claims an audit falsified: the train-discovery snapshot is a
+  known exception rather than one of the three safe kinds, the stale check covers deleted files
+  only, cookie-based OIDC is exempt from the ordering rule, and the census has more blind spots
+  than the receiver name.
 - **2026-09-11**: Recorded.

@@ -20,9 +20,10 @@ if your work contradicts one, say so rather than silently overriding it.
 | subscriptions or socket auth | both, in that order. This is where the silent failure happened |
 
 Decisions binding more than one repo live in the central corpus at `Trax.Docs/adr/`, whose
-index lists them by repo. Eight name `api`, including the canonical train name being the
-interface FullName, exact version pinning, the dependency direction, and the three test
-conventions. In a workspace checkout the index is at `../Trax.Docs/adr/README.md`; that path
+index lists them by repo. Nine name `api`: executable guards, exact version pinning, the
+dependency direction, the three test conventions, the canonical train name being the
+interface FullName, the documentation lints, and feature-package tables shipping in the core
+provider migration set. In a workspace checkout the index is at `../Trax.Docs/adr/README.md`; that path
 does not resolve on GitHub, because it crosses a repository boundary.
 
 ## When your change makes a decision
@@ -49,9 +50,11 @@ not to record. The format is
 and enforce workspace-wide rules; `NoSilentRegistrationOrderDependenceTests` is unique to
 this repo and is the census behind [0002](./docs/adr/0002-reading-the-service-collection-is-order-dependent.md).
 
-Six runtime validators fail the host at startup rather than at request time: five under
+Five runtime validators fail the host at startup rather than at request time: four under
 `src/Trax.Api.GraphQL/Startup/` and `TraxGraphQLAuthPolicyValidator` alongside the
 authorization code. They are `IHostedService`s so they run after the container is complete.
+`QueryModelScalarCollectionIndexValidator` sits beside them and is advisory: it logs a
+missing-index warning and never blocks startup.
 
 The census (every guard credited to an ADR or explicitly opted out) is **not** switched on
 here yet. Trax.Docs runs it over its own guards; this repo will once the shared copies carry
