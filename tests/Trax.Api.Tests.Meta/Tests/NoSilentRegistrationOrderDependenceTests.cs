@@ -21,6 +21,7 @@ namespace Trax.Api.Tests.Meta.Tests;
 /// container is complete, or assert the ordering at startup and throw. See
 /// <c>Trax.Docs/reference/registration-order.md</c>.
 /// </para>
+/// <para>Enforces <c>docs/adr/0002-reading-the-service-collection-is-order-dependent.md</c>.</para>
 /// </remarks>
 [TestFixture]
 public class NoSilentRegistrationOrderDependenceTests
@@ -92,7 +93,8 @@ public class NoSilentRegistrationOrderDependenceTests
                     + "where the caller is in their startup code. Either defer the decision until "
                     + "the container is complete, or add a startup validator that throws when the "
                     + "ordering was wrong, then add the site to ReviewedSites with a reason. See "
-                    + "Trax.Docs/reference/registration-order.md.\n  "
+                    + "Trax.Docs/reference/registration-order.md and "
+                    + "docs/adr/0002-reading-the-service-collection-is-order-dependent.md.\n  "
                     + string.Join("\n  ", offenders)
             );
     }
