@@ -72,11 +72,19 @@ Not covered:
 - Nothing checks that a new piece of host configuration *has* a validator. Adding a surface
   that can be half-wired and forgetting the check is invisible to the build, and that is the
   failure mode this ADR is about.
-- `QueryModelAuthorizeSchemaInvariantE2ETests.cs` is the end-to-end half of the same story, but
-  its only assertion is that the host is not null, which cannot fail. It also needs a live
-  Postgres and fails rather than skipping without one. Read it as a smoke test, not as
-  coverage.
+- `QueryModelAuthorizeSchemaInvariantE2ETests.cs` covers only the passing direction. Its one
+  explicit assertion is that the host is not null, which cannot fail, but the host comes from
+  `await host.StartAsync()`, which runs the validator as a hosted service against the real
+  built schema: a regression that made it throw on a correctly wired host does fail the test.
+  What nothing covers end to end is the failing direction. The stripped-directive cases are
+  driven against hand-built schemas in `QueryModelAuthorizeSchemaValidatorTests`, because the
+  realistic bypasses are rejected by HotChocolate's own type-uniqueness check before the
+  validator sees them. It also needs a live Postgres and fails rather than skipping without
+  one.
 
 ## Changelog
 
+- **2026-09-11**: Corrected the account of `QueryModelAuthorizeSchemaInvariantE2ETests`.
+  Starting the host runs the validator, so the success path is covered; what is missing is
+  the failing direction end to end.
 - **2026-09-11**: Recorded.

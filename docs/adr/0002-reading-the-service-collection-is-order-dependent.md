@@ -14,13 +14,24 @@ precondition that throws, and a decision paired with a startup validator
 
 Inspecting the collection is not banned. Being **silently** different because of order is.
 
-**One site is none of the three, and is knowingly accepted.** `AddTraxGraphQL()` snapshots
-train discovery to decide whether `RootQuery` and `RootMutation` get any fields. A
-`[TraxQuery]` train registered afterwards is absent from the schema, with no validator and
-no error. The code says so where it happens. It is tolerated because the established shape
-is `AddTrax(...)` then `AddTraxGraphQL(...)`, with train registration finished inside or
-before `AddTrax`, but it is a real exception to the rule above rather than a fourth safe
-kind.
+**Two sites are none of the three, and both are knowingly accepted.** The broadcaster branch
+in `AddTraxGraphQL()` wires the GraphQL train-event handlers when an `ITrainEventReceiver` is
+registered. The registrations Trax ships are inside `UseBroadcaster(...)`, which runs within
+`AddTrax(...)`, and the precondition at the top of `AddTraxGraphQL()` refuses to run before
+`AddTrax`, so on the established shape the answer is settled before the read. That is a
+convention, not a guarantee: `ITrainEventReceiver` is public and on the API baseline, so a
+host can register one directly at any point, and one registered after `AddTraxGraphQL()`
+leaves the handlers unwired with no validator and no error. `GraphQLBroadcasterIntegrationTests`
+does exactly that, deliberately. Note also that the SignalR path registers a
+`NullTrainEventReceiver`, so the read answers "has a receiver been registered", not "is a
+broadcaster transport present".
+
+The second is train discovery. `AddTraxGraphQL()` snapshots train discovery to decide
+whether `RootQuery` and `RootMutation` get any fields. A `[TraxQuery]` train registered
+afterwards is absent from the schema, with no validator and no error. The code says so where
+it happens. It is tolerated because the established shape is `AddTrax(...)` then
+`AddTraxGraphQL(...)`, with train registration finished inside or before `AddTrax`, but it is
+a real exception to the rule above rather than a fourth safe kind.
 
 ## Status
 
@@ -77,4 +88,9 @@ Not covered:
 
 ## Changelog
 
+- **2026-09-12**: Withdrew the "fourth safe kind". `ITrainEventReceiver` is public and on
+  the API baseline, so a host can register one after `AddTraxGraphQL()` and leave the
+  handlers unwired; the broadcaster branch is a second accepted exception, not a safe kind.
+- **2026-09-11**: Counted the broadcaster branch. Two sites are outside the three safe
+  kinds, not one.
 - **2026-09-11**: Recorded.

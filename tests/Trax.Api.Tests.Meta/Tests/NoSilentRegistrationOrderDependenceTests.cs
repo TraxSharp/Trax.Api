@@ -32,9 +32,12 @@ public class NoSilentRegistrationOrderDependenceTests
     );
 
     /// <summary>
-    /// Every site that reads the collection today, with the count it reads it at. Each is
-    /// either an idempotency guard, a precondition that throws, or a decision backed by a
-    /// startup validator that fails loudly when the ordering was wrong.
+    /// Every site that reads the collection today, with the count it reads it at. Most are an
+    /// idempotency guard, a precondition that throws, or a decision backed by a startup
+    /// validator that fails loudly when the ordering was wrong. Two are neither, and both are
+    /// knowingly accepted: the broadcaster branch, which is settled by the precondition only
+    /// for the registrations Trax itself ships, and the train-discovery snapshot. The
+    /// per-entry comments below say which is which, and adr/0002 records why.
     /// </summary>
     /// <remarks>
     /// To add an entry you must first make the site safe: pair it with a validator that throws

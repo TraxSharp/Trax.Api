@@ -22,9 +22,10 @@ if your work contradicts one, say so rather than silently overriding it.
 Decisions binding more than one repo live in the central corpus at `Trax.Docs/adr/`, whose
 index lists them by repo. Ten name `api`: executable guards, exact version pinning, the
 dependency direction, the three test conventions, the canonical train name being the
-interface FullName, the documentation lints, and feature-package tables shipping in the core
-provider migration set. In a workspace checkout the index is at `../Trax.Docs/adr/README.md`; that path
-does not resolve on GitHub, because it crosses a repository boundary.
+interface FullName, the documentation lints, feature-package tables shipping in the core
+provider migration set, and the public API baseline. In a workspace checkout the index is at
+`../Trax.Docs/adr/README.md`; that path does not resolve on GitHub, because it crosses a
+repository boundary.
 
 ## When your change makes a decision
 
@@ -63,7 +64,31 @@ that reads as a deferral is not.
 
 ## Running the tests
 
+There is no compose file in this repo. Postgres and RabbitMQ come from the workspace's
+sample stack, which starts both with the `trax`/`trax123` credentials the fixtures expect
+and creates the four databases they hard-code:
+
 ```bash
-docker compose up -d          # Postgres and RabbitMQ for the integration suites
+docker compose -f ../Trax.Samples/docker-compose.yml up -d
 dotnet test
 ```
+
+Those four databases (`trax_api_operations`, `trax_api_workqueue`, `trax_api_logs`,
+`trax_api_health`) come from the compose file's init script, which Postgres runs only when
+the container is first created. Against a container that predates them, or a clone of this
+repo on its own, there is no one-liner: bring up a `postgres:16` on 5432 and a
+`rabbitmq:4-management` on 5672 with that user and password the way
+`.github/workflows/pull_request.yml` does, then create the databases the way its "Create
+per-fixture test databases" step does.
+
+```bash
+for db in trax_api_operations trax_api_workqueue trax_api_logs trax_api_health; do
+  PGPASSWORD=trax123 psql -h localhost -U trax -d trax -c "CREATE DATABASE $db;"
+done
+```
+
+`OperationsQueriesTests`, `WorkQueueOperationsTests`, `LogQueriesTests` and
+`TraxHealthServiceTests` name those databases and do not create them, so they fail rather
+than skip when one is missing. The AuthE2E suite provisions its own through
+`AuthE2EHost.EnsureDatabaseExists`, so adding a fixture there needs no setup change, and
+the persisted-operations integration tests skip when Postgres or the broker is unreachable.
