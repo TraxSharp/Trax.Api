@@ -23,6 +23,7 @@ namespace Trax.Api.Tests.Meta.Tests;
 /// </para>
 /// <para>Enforces <c>docs/adr/0002-reading-the-service-collection-is-order-dependent.md</c>.</para>
 /// </remarks>
+[Property("adr", "docs/adr/0002-reading-the-service-collection-is-order-dependent.md")]
 [TestFixture]
 public class NoSilentRegistrationOrderDependenceTests
 {

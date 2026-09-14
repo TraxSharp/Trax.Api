@@ -13,6 +13,7 @@ namespace Trax.Api.Tests;
 ///
 /// <para>Enforces <c>docs/adr/0001-a-misconfigured-host-fails-at-startup.md</c>.</para>
 /// </summary>
+[Property("adr", "docs/adr/0001-a-misconfigured-host-fails-at-startup.md")]
 [TestFixture]
 public class TraxOperationsServiceValidatorTests
 {
