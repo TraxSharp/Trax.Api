@@ -1,4 +1,5 @@
 using HotChocolate;
+using HotChocolate.Authorization;
 using HotChocolate.Types;
 using Trax.Api.Auth;
 using Trax.Mediator.Services.TrustedExecution;
@@ -33,6 +34,7 @@ public record TraxCallerProbeResult(
 [ExtendObjectType("RootQuery")]
 public sealed class TraxCallerProbeQueries
 {
+    [AllowAnonymous]
     public TraxCallerProbeResult WhoAmI([Service] TraxCaller caller) =>
         new(
             IsAuthenticated: caller.IsAuthenticated,
@@ -56,6 +58,7 @@ public sealed class TraxCallerProbeMutations
     /// tests that need to send a POST body with crafted variables or
     /// extensions to probe whether they leak into the trust flag.
     /// </summary>
+    [AllowAnonymous]
     public TraxCallerProbeResult ReadCallerState([Service] TraxCaller caller) =>
         new(
             IsAuthenticated: caller.IsAuthenticated,
@@ -71,6 +74,7 @@ public sealed class TraxCallerProbeMutations
     /// must be <c>false</c>. Pins the scope's <see cref="IDisposable"/>
     /// contract: closing the handle restores the prior trust state.
     /// </summary>
+    [AllowAnonymous]
     public bool PokeAndReadAfter(
         [Service] ITrustedExecutionScope scope,
         [Service] TraxCaller caller
@@ -91,6 +95,7 @@ public sealed class TraxCallerProbeMutations
     /// broken (not Trax), and every "not-trusted" assertion elsewhere is
     /// trivially passing.
     /// </summary>
+    [AllowAnonymous]
     public bool PokeAndReadInside(
         [Service] ITrustedExecutionScope scope,
         [Service] TraxCaller caller
@@ -110,6 +115,7 @@ public sealed class TraxCallerProbeMutations
     /// observe <c>IsTrusted = false</c>. AsyncLocal must not leak across
     /// independent request execution contexts.
     /// </summary>
+    [AllowAnonymous]
     public async Task<bool> HoldTrustedFor(
         int millis,
         [Service] ITrustedExecutionScope scope,

@@ -1,4 +1,5 @@
 using HotChocolate;
+using HotChocolate.Authorization;
 using HotChocolate.Execution;
 using HotChocolate.Types;
 using Microsoft.Extensions.DependencyInjection;
@@ -76,8 +77,13 @@ public static class GraphQLFixture
     [ExtendObjectType("RootQuery")]
     public class HelloQuery
     {
+        // The fixture endpoint is open by design (it asserts persisted-operation enforcement,
+        // not authorization), so both fields say so rather than inheriting a gate that is not
+        // there.
+        [AllowAnonymous]
         public string Hello() => "world";
 
+        [AllowAnonymous]
         public string Version() => "v1";
     }
 }
