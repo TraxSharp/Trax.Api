@@ -99,8 +99,10 @@ types has to keep re-deriving a second type's posture to answer a question about
 - `ResolverAuthorizationTests` proves the emitted directive is a real gate over HTTP:
   `[TraxAuthorize(Roles = ...)]` on a resolver refuses an anonymous caller and a caller without
   the role, serves the role holder, and leaves a `[TraxAllowAnonymous]` sibling open.
-- `NoForeignAuthorizationAttributesTests` keeps HotChocolate's attributes out of Trax's own code,
-  allowlisting the translation layer that emits the directive.
+**Enforced elsewhere:** NoForeignAuthorizationAttributesTests keeps HotChocolate's attributes out
+of this repo's own code, allowlisting the translation layer that emits the directive. It enforces
+the vocabulary decision rather than this one, which is recorded centrally as
+[docs/0013](../../../Trax.Docs/adr/0013-trax-owns-the-vocabulary-for-its-own-concepts.md).
 - [Architecture Guards](/docs/reference/architecture-guards) is the rule this produces.
 
 Not covered:

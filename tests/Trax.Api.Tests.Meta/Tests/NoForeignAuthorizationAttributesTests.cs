@@ -8,19 +8,23 @@ namespace Trax.Api.Tests.Meta.Tests;
 /// and cannot credibly refuse a consumer's use of another framework's attributes while writing
 /// them itself.
 ///
-/// <para>Enforces <c>docs/adr/0003-a-type-extension-field-declares-its-own-posture.md</c>.</para>
+/// <para>Enforces <c>Trax.Docs/adr/0013-trax-owns-the-vocabulary-for-its-own-concepts.md</c>.</para>
 /// </summary>
 /// <remarks>
+/// A local implementation for now. It moves to <c>VocabularyGuards.TraxVocabularyIsUsed</c>,
+/// shipped from Trax.Core.Testing, once a release carrying that guard is pinned here.
+/// <para>
 /// The exception is the translation layer. <c>AuthorizeDirectives</c> and the interceptor that
 /// emits directives construct HotChocolate's <c>AuthorizeDirective</c> on purpose: that is Trax
 /// speaking to the server, which is the direction that is allowed. What is banned is reading a
 /// consumer's HotChocolate attribute, or decorating Trax's own types with one.
 /// </remarks>
-[Property("adr", "docs/adr/0003-a-type-extension-field-declares-its-own-posture.md")]
+[Property("adr", "Trax.Docs/adr/0013-trax-owns-the-vocabulary-for-its-own-concepts.md")]
 [TestFixture]
 public class NoForeignAuthorizationAttributesTests
 {
-    private const string Adr = "docs/adr/0003-a-type-extension-field-declares-its-own-posture.md";
+    private const string Adr =
+        "Trax.Docs/adr/0013-trax-owns-the-vocabulary-for-its-own-concepts.md";
 
     /// <summary>
     /// An <c>[Authorize]</c> or <c>[AllowAnonymous]</c> attribute in attribute position, with or
