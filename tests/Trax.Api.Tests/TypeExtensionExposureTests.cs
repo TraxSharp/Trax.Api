@@ -1,6 +1,5 @@
 using FluentAssertions;
 using HotChocolate;
-using HotChocolate.Authorization;
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Types;
 using Microsoft.EntityFrameworkCore;
@@ -145,36 +144,37 @@ public class TypeExtensionExposureTests
     }
 
     /// <summary>
-    /// Class-level <c>[Authorize]</c> on an extension is a trap: HotChocolate applies it to the
-    /// type being extended, so on a <c>[TraxAllowAnonymous]</c> entity it re-locks the whole
-    /// entity rather than gating the one field. Trax already refuses that, from the query-model
-    /// schema validator, which is why the census leaves this case to it.
+    /// The reason Trax owns this attribute rather than deferring to HotChocolate's. A class-level
+    /// <c>[TraxAuthorize]</c> on an extension gates the fields that extension contributes and
+    /// leaves the type being extended alone, so a <c>[TraxAllowAnonymous]</c> entity stays
+    /// anonymous. HotChocolate's attribute applies to the extended type instead, which re-locks
+    /// the whole entity and trips the query-model invariant.
     /// </summary>
     [Test]
-    public async Task AnonymousParent_ClassLevelAuthorize_FailsStartupAtTheEntityInvariant()
+    public async Task AnonymousParent_ClassLevelTraxAuthorize_GatesTheFieldAndLeavesTheEntityOpen()
     {
         var ex = await StartAsync(g => g.AddTypeExtension<ClassGatedOnPublicThing>());
 
-        ex.Should().BeOfType<InvalidOperationException>();
-        ex!.Message.Should().Contain("[TraxAllowAnonymous] invariant violated");
-        ex.Message.Should().Contain(nameof(PublicThing));
+        ex.Should()
+            .BeNull(
+                "the entity keeps its [TraxAllowAnonymous] posture, so the query-model schema "
+                    + "invariant is not tripped"
+            );
     }
 
     /// <summary>
-    /// The same trap on a root type, where nothing else catches it: a class-level attribute there
-    /// would set the posture of every operation in the schema.
+    /// Same on a root type, where HotChocolate's attribute would have set the posture of every
+    /// operation in the schema.
     /// </summary>
     [Test]
-    public async Task RootType_ClassLevelAuthorize_FailsStartupNamingTheMistake()
+    public async Task RootType_ClassLevelTraxAuthorize_GatesOnlyThatExtensionsFields()
     {
         var ex = await StartAsync(
             g => g.AddTypeExtension<ClassGatedOnRootMutation>(),
             exposeOperations: true
         );
 
-        ex.Should().BeOfType<InvalidOperationException>();
-        ex!.Message.Should().Contain("RootMutation.classGatedRootField");
-        ex.Message.Should().Contain("Move the attribute onto the resolver method");
+        ex.Should().BeNull();
     }
 
     // ── A field on a gated parent inherits the gate ──────────────────────
@@ -248,6 +248,47 @@ public class TypeExtensionExposureTests
     public async Task Subscription_WithAllowAnonymous_Starts()
     {
         (await StartAsync(g => g.AddTypeExtension<AnonymousSubscription>())).Should().BeNull();
+    }
+
+    // ── Another framework's vocabulary is refused ───────────────────────
+
+    /// <summary>
+    /// HotChocolate's attribute compiles on a resolver and HotChocolate would honour it, which is
+    /// exactly why Trax refuses it: the field would be gated by a vocabulary Trax does not read,
+    /// so the census could not tell a deliberate posture from an accident.
+    /// </summary>
+    [Test]
+    public async Task ForeignAuthorizeAttribute_FailsStartup()
+    {
+        var ex = await StartAsync(g => g.AddTypeExtension<ForeignGatedOnPublicThing>());
+
+        ex.Should().BeOfType<InvalidOperationException>();
+        ex!.Message.Should().Contain("PublicThing.foreignGated");
+        ex.Message.Should().Contain("[Authorize]");
+        ex.Message.Should().Contain("[TraxAuthorize]");
+    }
+
+    [Test]
+    public async Task ForeignAllowAnonymousAttribute_FailsStartup()
+    {
+        var ex = await StartAsync(g => g.AddTypeExtension<ForeignAnonymousOnPublicThing>());
+
+        ex.Should().BeOfType<InvalidOperationException>();
+        ex!.Message.Should().Contain("[TraxAllowAnonymous]");
+    }
+
+    /// <summary>
+    /// Refused even on a gated parent, where the field needs no marker at all. The objection is
+    /// not that the field is ungated; it is that one surface is being described in two
+    /// vocabularies.
+    /// </summary>
+    [Test]
+    public async Task ForeignAttributeOnAGatedParent_StillFailsStartup()
+    {
+        var ex = await StartAsync(g => g.AddTypeExtension<ForeignGatedOnGatedThing>());
+
+        ex.Should().BeOfType<InvalidOperationException>();
+        ex!.Message.Should().Contain("which Trax does not read");
     }
 
     // ── Endpoint posture ─────────────────────────────────────────────────
@@ -451,30 +492,51 @@ public sealed class SecondUndeclaredOnPublicThing
 [ExtendObjectType(typeof(PublicThing))]
 public sealed class GatedOnPublicThing
 {
-    [Authorize(Roles = ["subscriber"])]
+    [TraxAuthorize(Roles = "subscriber")]
     public string Gated([Parent] PublicThing thing) => thing.Name;
 }
 
 [ExtendObjectType(typeof(PublicThing))]
 public sealed class AnonymousOnPublicThing
 {
-    [AllowAnonymous]
+    [TraxAllowAnonymous]
     public string Anonymous([Parent] PublicThing thing) => thing.Name;
 }
 
 [ExtendObjectType(typeof(PublicThing))]
 public sealed class ConflictedOnPublicThing
 {
-    [Authorize]
-    [AllowAnonymous]
+    [TraxAuthorize]
+    [TraxAllowAnonymous]
     public string Conflicted([Parent] PublicThing thing) => thing.Name;
 }
 
 [ExtendObjectType(typeof(PublicThing))]
-[Authorize(Roles = ["subscriber"])]
+[TraxAuthorize(Roles = "subscriber")]
 public sealed class ClassGatedOnPublicThing
 {
     public string ClassGated([Parent] PublicThing thing) => thing.Name;
+}
+
+[ExtendObjectType(typeof(PublicThing))]
+public sealed class ForeignGatedOnPublicThing
+{
+    [HotChocolate.Authorization.Authorize(Roles = ["subscriber"])]
+    public string ForeignGated([Parent] PublicThing thing) => thing.Name;
+}
+
+[ExtendObjectType(typeof(PublicThing))]
+public sealed class ForeignAnonymousOnPublicThing
+{
+    [HotChocolate.Authorization.AllowAnonymous]
+    public string ForeignAnonymous([Parent] PublicThing thing) => thing.Name;
+}
+
+[ExtendObjectType(typeof(GatedThing))]
+public sealed class ForeignGatedOnGatedThing
+{
+    [HotChocolate.Authorization.Authorize]
+    public string ForeignOnGated([Parent] GatedThing thing) => thing.Name;
 }
 
 [ExtendObjectType(typeof(PublicThing))]
@@ -501,7 +563,7 @@ public sealed class UndeclaredOnRootQuery
 /// assembly that scans for type extensions. RootMutation exists only where a host asked for it.
 /// </summary>
 [ExtendObjectType("RootMutation")]
-[Authorize]
+[TraxAuthorize]
 public sealed class ClassGatedOnRootMutation
 {
     public string ClassGatedRootField() => "gated";
@@ -510,8 +572,8 @@ public sealed class ClassGatedOnRootMutation
 [ExtendObjectType("RootQuery")]
 public sealed class ConflictedOnRootQuery
 {
-    [Authorize]
-    [AllowAnonymous]
+    [TraxAuthorize]
+    [TraxAllowAnonymous]
     public string ConflictedRootField() => "conflicted";
 }
 
@@ -537,7 +599,7 @@ public sealed class UndeclaredSubscription
 [ExtendObjectType("LifecycleSubscriptions")]
 public sealed class AnonymousSubscription
 {
-    [AllowAnonymous]
+    [TraxAllowAnonymous]
     [Subscribe(With = nameof(SubscribeAsync))]
     public string AnonymousStream([EventMessage] string message) => message;
 

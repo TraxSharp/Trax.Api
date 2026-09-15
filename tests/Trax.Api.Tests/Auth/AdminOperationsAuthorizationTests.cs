@@ -1,7 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
-using HotChocolate.Authorization;
 using HotChocolate.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,6 +12,7 @@ using Trax.Api.Auth.ApiKey;
 using Trax.Api.DTOs;
 using Trax.Api.GraphQL.Extensions;
 using Trax.Api.Services.HealthCheck;
+using Trax.Effect.Attributes;
 using Trax.Effect.Configuration.TraxBuilder;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
@@ -38,10 +38,12 @@ namespace Trax.Api.Tests.Auth;
 [TestFixture]
 public class AdminOperationsAuthorizationTests
 {
-    private const string AdminApiKey = "admin-ops-key";
-    private const string ReaderApiKey = "reader-ops-key";
+    internal const string AdminApiKey = "admin-ops-key";
+    internal const string ReaderApiKey = "reader-ops-key";
     private const string OperationsHealthQuery = "{ operations { health { status } } }";
-    private const string PublicQuery = "{ publicPing }";
+    internal const string PublicQuery = "{ publicPing }";
+    internal const string GatedQuery = "{ gatedPing }";
+    internal const string AuthenticatedQuery = "{ authenticatedPing }";
 
     /// <summary>How the host answers for the operations namespace.</summary>
     internal enum Posture
@@ -59,7 +61,7 @@ public class AdminOperationsAuthorizationTests
         NamespaceGatedByRole,
     }
 
-    private static async Task<IHost> StartHostAsync(Posture posture)
+    internal static async Task<IHost> StartHostAsync(Posture posture)
     {
         var health = Substitute.For<ITraxHealthService>();
         health
@@ -134,7 +136,7 @@ public class AdminOperationsAuthorizationTests
         return host;
     }
 
-    private static async Task<JsonDocument> PostAsync(
+    internal static async Task<JsonDocument> PostAsync(
         IHost host,
         string? apiKey,
         string query = OperationsHealthQuery
@@ -152,7 +154,7 @@ public class AdminOperationsAuthorizationTests
         return JsonDocument.Parse(await res.Content.ReadAsStringAsync());
     }
 
-    private static bool HasErrorCode(JsonDocument doc, string code) =>
+    internal static bool HasErrorCode(JsonDocument doc, string code) =>
         doc.RootElement.TryGetProperty("errors", out var errors)
         && errors
             .EnumerateArray()
@@ -341,13 +343,162 @@ public class AdminOperationsAuthorizationTests
 }
 
 /// <summary>
-/// A public field on the same endpoint as the operations namespace, standing in for the
-/// pre-login surfaces a host cannot gate. Declares its posture because a root-type extension
-/// field inherits none.
+/// <c>[TraxAuthorize]</c> and <c>[TraxAllowAnonymous]</c> on a resolver, end to end over HTTP.
+/// The census refuses a field that declares nothing; these prove the other half, that a field
+/// which does declare is actually enforced rather than merely annotated.
+///
+/// <para>Enforces <c>docs/adr/0003-a-type-extension-field-declares-its-own-posture.md</c>.</para>
+/// </summary>
+[Property("adr", "docs/adr/0003-a-type-extension-field-declares-its-own-posture.md")]
+[TestFixture]
+public class ResolverAuthorizationTests
+{
+    private const string Adr = "docs/adr/0003-a-type-extension-field-declares-its-own-posture.md";
+
+    // ── [TraxAuthorize] on a resolver is a real gate ─────────────────────
+
+    /// <summary>
+    /// The whole point of owning the vocabulary: Trax reads its own attribute off the resolver
+    /// and emits the server's directive, so the field is enforced, not merely annotated.
+    /// </summary>
+    [Test]
+    public async Task TraxAuthorizeOnAResolver_RefusesAnAnonymousCaller()
+    {
+        using var host = await AdminOperationsAuthorizationTests.StartHostAsync(
+            AdminOperationsAuthorizationTests.Posture.NamespaceGated
+        );
+
+        var doc = await AdminOperationsAuthorizationTests.PostAsync(
+            host,
+            apiKey: null,
+            query: AdminOperationsAuthorizationTests.GatedQuery
+        );
+
+        AdminOperationsAuthorizationTests
+            .HasErrorCode(doc, "TRAX_AUTHORIZATION")
+            .Should()
+            .BeTrue(
+                "[TraxAuthorize] on a resolver method emits @authorize on that field, per " + Adr
+            );
+
+        await host.StopAsync();
+    }
+
+    [Test]
+    public async Task TraxAuthorizeOnAResolver_RefusesAnAuthenticatedCallerWithoutTheRole()
+    {
+        using var host = await AdminOperationsAuthorizationTests.StartHostAsync(
+            AdminOperationsAuthorizationTests.Posture.NamespaceGated
+        );
+
+        var doc = await AdminOperationsAuthorizationTests.PostAsync(
+            host,
+            apiKey: AdminOperationsAuthorizationTests.ReaderApiKey,
+            query: AdminOperationsAuthorizationTests.GatedQuery
+        );
+
+        AdminOperationsAuthorizationTests
+            .HasErrorCode(doc, "TRAX_AUTHORIZATION")
+            .Should()
+            .BeTrue("Roles on the attribute reach the directive, not just the census");
+
+        await host.StopAsync();
+    }
+
+    [Test]
+    public async Task TraxAuthorizeOnAResolver_ServesTheRoleHolder()
+    {
+        using var host = await AdminOperationsAuthorizationTests.StartHostAsync(
+            AdminOperationsAuthorizationTests.Posture.NamespaceGated
+        );
+
+        var doc = await AdminOperationsAuthorizationTests.PostAsync(
+            host,
+            apiKey: AdminOperationsAuthorizationTests.AdminApiKey,
+            query: AdminOperationsAuthorizationTests.GatedQuery
+        );
+
+        doc.RootElement.TryGetProperty("errors", out _).Should().BeFalse();
+        doc.RootElement.GetProperty("data")
+            .GetProperty("gatedPing")
+            .GetString()
+            .Should()
+            .Be("pong");
+
+        await host.StopAsync();
+    }
+
+    /// <summary>
+    /// A bare [TraxAuthorize] with no policy and no roles asks only for an authenticated caller,
+    /// the same as it does on a train or an entity.
+    /// </summary>
+    [Test]
+    public async Task BareTraxAuthorizeOnAResolver_AsksOnlyForAuthentication()
+    {
+        using var host = await AdminOperationsAuthorizationTests.StartHostAsync(
+            AdminOperationsAuthorizationTests.Posture.NamespaceGated
+        );
+
+        var anonymous = await AdminOperationsAuthorizationTests.PostAsync(
+            host,
+            apiKey: null,
+            query: AdminOperationsAuthorizationTests.AuthenticatedQuery
+        );
+        AdminOperationsAuthorizationTests
+            .HasErrorCode(anonymous, "TRAX_AUTHORIZATION")
+            .Should()
+            .BeTrue();
+
+        var reader = await AdminOperationsAuthorizationTests.PostAsync(
+            host,
+            apiKey: AdminOperationsAuthorizationTests.ReaderApiKey,
+            query: AdminOperationsAuthorizationTests.AuthenticatedQuery
+        );
+        reader
+            .RootElement.TryGetProperty("errors", out _)
+            .Should()
+            .BeFalse("any authenticated caller satisfies a bare [TraxAuthorize]");
+
+        await host.StopAsync();
+    }
+
+    /// <summary>
+    /// The sibling stays open. Gating one field on a root type must not gate the root.
+    /// </summary>
+    [Test]
+    public async Task TraxAllowAnonymousSibling_StaysOpenBesideAGatedField()
+    {
+        using var host = await AdminOperationsAuthorizationTests.StartHostAsync(
+            AdminOperationsAuthorizationTests.Posture.NamespaceGated
+        );
+
+        var doc = await AdminOperationsAuthorizationTests.PostAsync(
+            host,
+            apiKey: null,
+            query: AdminOperationsAuthorizationTests.PublicQuery
+        );
+
+        doc.RootElement.TryGetProperty("errors", out _).Should().BeFalse();
+
+        await host.StopAsync();
+    }
+}
+
+/// <summary>
+/// Two root-type extension fields, one of each posture. Both declare, because a root-type
+/// extension field inherits nothing. <c>publicPing</c> stands in for the pre-login surfaces a
+/// host cannot gate; <c>gatedPing</c> is what proves Trax's own attribute produces a working
+/// gate and not just a schema annotation.
 /// </summary>
 [ExtendObjectType("RootQuery")]
 public sealed class PublicRootQueryExtension
 {
-    [AllowAnonymous]
+    [TraxAllowAnonymous]
     public string PublicPing() => "pong";
+
+    [TraxAuthorize(Roles = "Admin")]
+    public string GatedPing() => "pong";
+
+    [TraxAuthorize]
+    public string AuthenticatedPing() => "pong";
 }

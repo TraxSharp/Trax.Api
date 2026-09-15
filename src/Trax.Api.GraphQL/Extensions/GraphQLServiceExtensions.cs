@@ -31,6 +31,7 @@ using Trax.Api.GraphQL.Subscriptions;
 using Trax.Api.GraphQL.TypeModules;
 using Trax.Api.GraphQL.Types;
 using Trax.Api.GraphQL.Validation;
+using Trax.Effect.Attributes;
 using Trax.Effect.Configuration.TraxBuilder;
 using Trax.Effect.Services.ChangeSignal;
 using Trax.Effect.Services.TrainEventBroadcaster;
@@ -232,11 +233,9 @@ public static class GraphQLServiceExtensions
         // does not have.
         //
         // Three things can put one in the schema: a [TraxAuthorize] query model, GateOperations()
-        // on the operations namespace, and HotChocolate's own [Authorize] or [AllowAnonymous] on a
+        // on the operations namespace, and [TraxAuthorize] or [TraxAllowAnonymous] on a
         // type-extension resolver, which is what TypeExtensionExposureInterceptor requires of a
-        // field that inherits no gate. [AllowAnonymous] counts because it is a directive too
-        // (@allowAnonymous), and a schema carrying one without the authorization types registered
-        // fails to build.
+        // field that inherits no gate and turns into an @authorize directive.
         var authorizationInSchema =
             config.ModelRegistrations.Any(r => r.AuthorizeAttributes.Count > 0)
             || config.OperationsAuthorizeAttributes.Count > 0
@@ -395,10 +394,9 @@ public static class GraphQLServiceExtensions
     }
 
     /// <summary>
-    /// Whether any registered type-extension class declares an authorization posture with
-    /// HotChocolate's <c>[Authorize]</c> or <c>[AllowAnonymous]</c>, on the class or on one of its
-    /// resolvers. Both emit a directive, so either one means the schema needs the authorization
-    /// types registered.
+    /// Whether any registered type-extension class declares an authorization posture, on the class
+    /// or on one of its resolvers. A declaration becomes a directive, so either flavour means the
+    /// schema needs the authorization types registered.
     /// </summary>
     /// <remarks>
     /// Deciding this from the registration list rather than the built schema is deliberate: the
@@ -420,10 +418,12 @@ public static class GraphQLServiceExtensions
         );
 
     private static bool DeclaresPosture(MemberInfo member) =>
-        member.IsDefined(typeof(HotChocolate.Authorization.AuthorizeAttribute), inherit: true)
-        || member.IsDefined(
-            typeof(HotChocolate.Authorization.AllowAnonymousAttribute),
-            inherit: true
+        member.IsDefined(typeof(TraxAuthorizeAttribute), inherit: true)
+        || member.IsDefined(typeof(TraxAllowAnonymousAttribute), inherit: true)
+        // A foreign attribute is refused rather than honoured, but the refusal happens at schema
+        // build, so the authorization types still have to be there for the schema to get that far.
+        || TraxAuthorization.ForeignAuthorizationAttributes.Any(name =>
+            member.GetCustomAttributes(inherit: true).Any(a => a.GetType().FullName == name)
         );
 
     /// <summary>

@@ -1,11 +1,11 @@
 using HotChocolate;
-using HotChocolate.Authorization;
 using HotChocolate.Execution;
 using HotChocolate.Types;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Trax.Api.GraphQL.Extensions;
 using Trax.Api.GraphQL.PersistedOperations.Extensions;
+using Trax.Effect.Attributes;
 using Trax.Effect.Configuration.TraxBuilder;
 using Trax.Effect.Data.Postgres.Extensions;
 using Trax.Effect.Data.Postgres.Utils;
@@ -80,10 +80,10 @@ public static class GraphQLFixture
         // The fixture endpoint is open by design (it asserts persisted-operation enforcement,
         // not authorization), so both fields say so rather than inheriting a gate that is not
         // there.
-        [AllowAnonymous]
+        [TraxAllowAnonymous]
         public string Hello() => "world";
 
-        [AllowAnonymous]
+        [TraxAllowAnonymous]
         public string Version() => "v1";
     }
 }

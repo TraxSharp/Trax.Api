@@ -11,8 +11,8 @@ declaring neither `[TraxAuthorize]` nor `[TraxAllowAnonymous]`. That census cann
 `[ExtendObjectType]` resolver, because such a field is added to the type by HotChocolate and
 never passes back through Trax, so a resolver bolted onto a `[TraxAllowAnonymous]` entity is
 public without anyone having decided it should be. A field whose parent is anonymous, or whose
-parent is a root type, must carry HotChocolate's `[Authorize]` or `[AllowAnonymous]`, and the
-host fails at startup when it carries neither.
+parent is a root type, must carry `[TraxAuthorize]` or `[TraxAllowAnonymous]`, and the host fails
+at startup when it carries neither.
 
 Inheritance is what makes this narrow enough to ship. A field on a gated parent is already
 behind that parent's `@authorize`, so it needs no marker, and a field on a type carrying
@@ -38,14 +38,16 @@ suite required a marker on nine of them. Each was deliberately anonymous, each t
 `[AllowAnonymous]`, and the diff is the argument for the rule: nothing about those fields
 said so before.
 
-**Widening `[TraxAuthorize]` to `AttributeTargets.Method` and emitting the directive from a
-`TypeInterceptor`.** The obvious shape, and the one to reject first. The attribute lives in
-`Trax.Effect` and the enforcement in `Trax.Api`, so the widening releases first and there is a
-window in which a consumer can write `[TraxAuthorize]` on a resolver and have it do nothing:
-today that is `CS0592`, and a compile error is better than a silent no-op. HotChocolate's own
-`[Authorize]` already applies to a method and already produces the directive, so nothing is
-gained by owning the attribute that is not already available. Revisit it as ergonomics once
-the census exists, never as the thing that closes the gap.
+**Requiring HotChocolate's `[Authorize]` and `[AllowAnonymous]` instead.** What this ADR
+originally decided, and it was wrong. Those attributes already apply to a resolver, so the census
+could have shipped without touching `Trax.Effect` at all, and the cost looked like a release
+window: widening Trax's attributes means `Trax.Effect` releases before `Trax.Api` can enforce the
+widening. That window is the ordinary shape of a cross-repo change here. What it bought was the
+first place in Trax where a consumer has to write HotChocolate's vocabulary for Trax's own check
+to pass, which is what `[TraxAuthorize]` exists to prevent. The vocabulary is now Trax's, the
+foreign attributes are refused by name, and
+[effect/0004](../../../Trax.Effect/docs/adr/0004-trax-owns-the-authorization-vocabulary.md)
+records that decision where the attributes live.
 
 **Reading the census off `GraphQLConfiguration.AdditionalTypeExtensions`.** Cheaper, and blind
 in the one direction that matters. `ConfigureSchema` hands the consumer the whole
@@ -69,11 +71,17 @@ because the entity gate is all or nothing and the endpoint already answered, whi
 `[AllowAnonymous]` is not, because on a role-gated parent it still means something, namely any
 authenticated caller rather than only the role.
 
-**A class-level attribute on a type extension is reported, not honoured.** HotChocolate applies
-one to the type being extended rather than to the fields the extension adds. On a
-`[TraxAllowAnonymous]` entity that re-locks the entity, which the query-model schema validator
-already refuses; on a root type it would set the posture of every operation in the schema, which
-nothing else catches, so the census names it and says to move the attribute to the resolver.
+**A class-level `[TraxAuthorize]` on a type extension gates that extension's fields.** This is
+the part owning the attribute buys outright. HotChocolate applies a class-level attribute to the
+type being extended, so on a `[TraxAllowAnonymous]` entity it re-locks the entity and on a root
+type it sets the posture of every operation in the schema. Trax applies its own to the fields the
+extension contributes, which is what someone writing it there means.
+
+**Trax emits the directive, so the attribute is a gate and not an annotation.**
+`TypeExtensionExposureInterceptor` reads the attributes at `OnBeforeRegisterDependencies`, on the
+extension's own configuration, which is early enough for HotChocolate to turn `@authorize` into
+resolver middleware. `OnBeforeCompleteType`, where the census runs, is too late for that and is
+the only place the merged parent is known, which is why the two phases sit at different hooks.
 
 **Return type is not an exemption.** A field returning a gated entity still has to declare.
 What the field returns is not what the field does, and a census that reasons about return
@@ -86,8 +94,13 @@ types has to keep re-deriving a second type's posture to answer a question about
   `ExposureAuthorizationRule` described above.
 - `TypeExtensionExposureTests` drives it through a real host: which fields the census sees, what
   it resolves their parent to be, and that the host refuses to start. It includes the case that
-  justifies reading the merged type, a type extension registered through `ConfigureSchema`,
-  which never reaches `AdditionalTypeExtensions`.
+  justifies reading the merged type, a type extension registered through `ConfigureSchema`, which
+  never reaches `AdditionalTypeExtensions`, and the refusal of HotChocolate's attributes.
+- `ResolverAuthorizationTests` proves the emitted directive is a real gate over HTTP:
+  `[TraxAuthorize(Roles = ...)]` on a resolver refuses an anonymous caller and a caller without
+  the role, serves the role holder, and leaves a `[TraxAllowAnonymous]` sibling open.
+- `NoForeignAuthorizationAttributesTests` keeps HotChocolate's attributes out of Trax's own code,
+  allowlisting the translation layer that emits the directive.
 - [Architecture Guards](/docs/reference/architecture-guards) is the rule this produces.
 
 Not covered:
@@ -102,6 +115,11 @@ Not covered:
 
 ## Changelog
 
+- **2026-09-15**: Reversed the vocabulary decision. The markers are `[TraxAuthorize]` and
+  `[TraxAllowAnonymous]`, widened to methods in
+  [effect/0004](../../../Trax.Effect/docs/adr/0004-trax-owns-the-authorization-vocabulary.md), and
+  HotChocolate's are refused. Trax emits the directive itself, which also lets a class-level
+  attribute mean the extension's fields rather than the extended type.
 - **2026-09-15**: Accepted and implemented. Recorded the blast radius honestly (root-type fields
   are not rare), the `AnonymousUnderGate` divergence, and the class-level-attribute case.
 - **2026-09-15**: Recorded.

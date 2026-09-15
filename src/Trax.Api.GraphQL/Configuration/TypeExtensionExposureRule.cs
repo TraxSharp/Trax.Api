@@ -37,10 +37,10 @@ internal enum TypeExtensionParentPosture
 /// <c>@authorize</c>, which holds right up until the parent has no gate to inherit.
 /// </para>
 /// <para>
-/// The markers are HotChocolate's own <c>[Authorize]</c> and <c>[AllowAnonymous]</c>, which
-/// already apply to a resolver method. Trax's <c>[TraxAuthorize]</c> does not: it targets
-/// classes and interfaces, so writing it on a resolver is a compile error rather than a
-/// silent no-op.
+/// The markers are Trax's own <c>[TraxAuthorize]</c> and <c>[TraxAllowAnonymous]</c>, which apply
+/// to a resolver method and which Trax turns into the server's <c>@authorize</c> directive.
+/// HotChocolate's attributes are refused in their place: see
+/// <see cref="Trax.Effect.Attributes.TraxAuthorization"/>.
 /// </para>
 /// </remarks>
 internal static class TypeExtensionExposureRule
@@ -100,16 +100,16 @@ internal static class TypeExtensionExposureRule
                 $"GraphQL field '{fieldPath}' is added by a type extension ({resolver}) onto "
                     + $"{parentDescription}, so it inherits no authorization gate, and it declares "
                     + "none of its own. A field that inherits nothing must state its posture "
-                    + "explicitly: add HotChocolate's [Authorize] (optionally with Policy or Roles) "
-                    + "to gate it, or [AllowAnonymous] to open it to anonymous callers. To gate the "
+                    + "explicitly: add [TraxAuthorize] (optionally with Policy or Roles) to gate "
+                    + "it, or [TraxAllowAnonymous] to open it to anonymous callers. Both apply to "
+                    + "a method, and Trax emits the matching @authorize directive. To gate the "
                     + "entire endpoint instead, call "
-                    + "UseTraxGraphQL(configure: e => e.RequireAuthorization(...)). Note that "
-                    + "[TraxAuthorize] does not apply to a resolver method; the HotChocolate "
-                    + "attributes are the ones that work here.",
+                    + "UseTraxGraphQL(configure: e => e.RequireAuthorization(...)).",
             ExposureViolation.Conflict =>
-                $"GraphQL field '{fieldPath}' ({resolver}) declares both [Authorize] and "
-                    + "[AllowAnonymous]. The two are mutually exclusive: [AllowAnonymous] opens the "
-                    + "field to anonymous callers, while [Authorize] gates it. Pick one.",
+                $"GraphQL field '{fieldPath}' ({resolver}) declares both [TraxAuthorize] and "
+                    + "[TraxAllowAnonymous]. The two are mutually exclusive: [TraxAllowAnonymous] "
+                    + "opens the field to anonymous callers, while [TraxAuthorize] gates it. "
+                    + "Pick one.",
             _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, null),
         };
 
@@ -118,20 +118,16 @@ internal static class TypeExtensionExposureRule
     /// resolvers, where the target is a schema root type.
     /// </summary>
     /// <remarks>
-    /// HotChocolate applies a class-level attribute on an <c>[ExtendObjectType]</c> to the type
-    /// being extended, not to the fields the extension adds. On a root type that gates or opens
-    /// every operation in the schema, which is never what someone adding one field meant. It is
-    /// reported rather than accepted because accepting it would let one field's posture silently
-    /// become the whole schema's.
+    /// Kept for a posture Trax cannot place. <c>[TraxAuthorize]</c> on an <c>[ExtendObjectType]</c>
+    /// class applies to the fields that extension contributes, which is what someone writing it
+    /// there means, so it needs no diagnostic of its own.
     /// </remarks>
     public static string BuildClassLevelMessage(
         string fieldPath,
         string extensionClass,
         string parentDescription
     ) =>
-        $"GraphQL field '{fieldPath}' is added by a type extension ({extensionClass}) that declares "
-        + $"[Authorize] or [AllowAnonymous] on the class, and its target is {parentDescription}. "
-        + "HotChocolate applies a class-level attribute to the type being extended, not to the "
-        + "fields the extension adds, so this posture would apply to every operation on that root "
-        + "type rather than to this field. Move the attribute onto the resolver method.";
+        $"GraphQL field '{fieldPath}' is added by a type extension ({extensionClass}) whose "
+        + $"class-level posture cannot be applied to {parentDescription}. Move the attribute onto "
+        + "the resolver method.";
 }

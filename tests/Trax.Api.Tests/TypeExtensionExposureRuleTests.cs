@@ -282,18 +282,17 @@ public class TypeExtensionExposureRuleTests
 
         message.Should().Contain("Issue.content");
         message.Should().Contain("Nwyc.IssueContentExtension.GetContent");
+        message.Should().Contain("[TraxAuthorize]");
         message.Should().Contain("[TraxAllowAnonymous]");
-        message.Should().Contain("[Authorize]");
-        message.Should().Contain("[AllowAnonymous]");
         message.Should().Contain("RequireAuthorization");
     }
 
     /// <summary>
-    /// The message says [TraxAuthorize] does not work on a resolver, because that is the first
-    /// thing a Trax consumer reaches for and it is a compile error, not a gate.
+    /// The message names Trax's attributes and says they apply to a method, because the first
+    /// thing a consumer needs to know is that the Trax vocabulary reaches a resolver now.
     /// </summary>
     [Test]
-    public void MissingMarkerMessage_SaysTraxAuthorizeDoesNotApply()
+    public void MissingMarkerMessage_SaysTheTraxAttributesApplyToAMethod()
     {
         TypeExtensionExposureRule
             .BuildMessage(
@@ -303,7 +302,7 @@ public class TypeExtensionExposureRuleTests
                 ExposureViolation.MissingMarker
             )
             .Should()
-            .Contain("[TraxAuthorize] does not apply to a resolver method");
+            .Contain("Both apply to a method");
     }
 
     [Test]
@@ -316,8 +315,8 @@ public class TypeExtensionExposureRuleTests
             ExposureViolation.Conflict
         );
 
-        message.Should().Contain("[Authorize]");
-        message.Should().Contain("[AllowAnonymous]");
+        message.Should().Contain("[TraxAuthorize]");
+        message.Should().Contain("[TraxAllowAnonymous]");
         message.Should().Contain("Pick one");
     }
 

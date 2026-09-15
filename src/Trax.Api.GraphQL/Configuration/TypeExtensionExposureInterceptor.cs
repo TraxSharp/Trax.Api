@@ -1,31 +1,35 @@
 using System.Reflection;
 using HotChocolate.Authorization;
 using HotChocolate.Configuration;
+using HotChocolate.Internal;
 using HotChocolate.Types.Descriptors.Configurations;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Queries;
 using Trax.Api.GraphQL.Subscriptions;
+using Trax.Effect.Attributes;
 
 namespace Trax.Api.GraphQL.Configuration;
 
 /// <summary>
-/// The exposure census for fields a type extension adds to a type Trax owns. Finds them on the
-/// merged object type, resolves what the parent gives them, and records every field that
-/// inherits no gate and declares none.
+/// Makes <c>[TraxAuthorize]</c> and <c>[TraxAllowAnonymous]</c> work on a resolver, and censuses
+/// the fields a type extension adds to a type Trax owns.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Two phases, at two different points in HotChocolate's pipeline because they need different
+/// things. Emission runs at <c>OnBeforeRegisterDependencies</c>, on the extension's own
+/// configuration, which is early enough that the <c>@authorize</c> directive is registered as a
+/// dependency and turned into resolver middleware. The census runs at
+/// <c>OnBeforeCompleteType</c>, on the merged type, which is the only point where a field's
+/// parent, and therefore what it inherits, is known.
+/// </para>
 /// <para>
 /// Reading the merged type rather than the registered <c>[ExtendObjectType]</c> classes is what
 /// makes the census complete. <c>ConfigureSchema</c> hands the consumer the whole
 /// <see cref="HotChocolate.Execution.Configuration.IRequestExecutorBuilder"/>, so a type
 /// extension can reach the schema without passing through
 /// <c>GraphQLConfiguration.AdditionalTypeExtensions</c>, and a census built from that list would
-/// not know it exists. By <c>OnBeforeCompleteType</c> every extension has been merged onto its
-/// target, however it was registered.
-/// </para>
-/// <para>
-/// <see cref="QueryModelProjectionRequirementInterceptor"/> reads the same hook for the same
-/// reason and tells extension fields apart the same way.
+/// not know it exists.
 /// </para>
 /// </remarks>
 internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
@@ -37,8 +41,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
     /// <summary>
     /// The schema root types Trax registers. A field grafted onto one of these has no parent to
     /// inherit from, which is why a subscription added by
-    /// <c>[ExtendObjectType(nameof(LifecycleSubscriptions))]</c> is covered without a special
-    /// case.
+    /// <c>[ExtendObjectType("LifecycleSubscriptions")]</c> is covered without a special case.
     /// </summary>
     private static readonly HashSet<Type> RootTypes =
     [
@@ -70,6 +73,68 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
         }
     }
 
+    // ── Phase 1: turn [TraxAuthorize] on a resolver into @authorize ──────
+
+    /// <summary>
+    /// Runs before type extensions are merged, so the fields seen here are the ones the extension
+    /// itself declares and the directive travels with them into the merged type.
+    /// </summary>
+    public override void OnBeforeRegisterDependencies(
+        ITypeDiscoveryContext discoveryContext,
+        TypeSystemConfiguration configuration
+    )
+    {
+        if (configuration is not ObjectTypeConfiguration objectType)
+            return;
+
+        foreach (var field in objectType.Fields)
+        {
+            if (Resolver(field) is not { } resolver)
+                continue;
+
+            var declaration = Declaration(objectType.RuntimeType, resolver);
+            if (!declaration.HasAuthorize)
+                continue;
+
+            Emit(discoveryContext, field, declaration.Authorize);
+        }
+    }
+
+    /// <summary>
+    /// Emits one <c>@authorize</c> per policy plus a single unioned roles directive, matching
+    /// <see cref="AuthorizeDirectives"/> exactly so a train, an entity and a resolver carrying the
+    /// same attribute get the same rules.
+    /// </summary>
+    private static void Emit(
+        ITypeDiscoveryContext context,
+        ObjectFieldConfiguration field,
+        IReadOnlyList<TraxAuthorizeAttribute> attributes
+    )
+    {
+        AuthorizeDirectives.ExtractRules(attributes, out var policies, out var roles);
+
+        // ConfigurationHelper is how HotChocolate itself turns a directive instance into a
+        // configuration: it builds the type reference from the inspector, which is not something
+        // a caller can construct.
+        var inspector = context.TypeInspector;
+
+        foreach (var policy in policies)
+            field.AddDirective(
+                new AuthorizeDirective(policy, apply: ApplyPolicy.BeforeResolver),
+                inspector
+            );
+
+        if (roles.Length > 0)
+            field.AddDirective(
+                new AuthorizeDirective(roles, apply: ApplyPolicy.BeforeResolver),
+                inspector
+            );
+        else if (policies.Length == 0)
+            field.AddDirective(new AuthorizeDirective(ApplyPolicy.BeforeResolver), inspector);
+    }
+
+    // ── Phase 2: the census, on the merged type ─────────────────────────
+
     /// <summary>
     /// Runs after type extensions are merged, so a consumer-supplied <c>[ExtendObjectType]</c>
     /// field is present on the object type by this point.
@@ -94,18 +159,19 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
                 continue;
 
             var fieldPath = $"{objectType.Name}.{field.Name}";
+            var resolver = $"{member.DeclaringType?.FullName}.{member.Name}";
+            var declaration = Declaration(objectType.RuntimeType, member);
 
-            // A class-level attribute on an [ExtendObjectType] lands on the type being extended.
-            // On a root type that is the whole schema's posture, set by someone adding one field.
-            if (RootTypes.Contains(objectType.RuntimeType) && DeclaresPosture(member.DeclaringType))
+            // Another framework's attribute is refused wherever it appears, gated parent or not:
+            // it is a posture Trax cannot enforce, standing where a Trax one belongs.
+            if (declaration.HasForeign)
             {
                 _report.Add(
                     new TypeExtensionExposureViolation(
                         fieldPath,
-                        TypeExtensionExposureRule.BuildClassLevelMessage(
-                            fieldPath,
-                            member.DeclaringType!.FullName ?? member.DeclaringType.Name,
-                            DescribeParent(objectType.RuntimeType, parent)
+                        TraxAuthorization.ForeignAttributeMessage(
+                            $"GraphQL field '{fieldPath}' ({resolver})",
+                            declaration.ForeignAttributes
                         )
                     )
                 );
@@ -114,8 +180,8 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
 
             var violation = TypeExtensionExposureRule.Evaluate(
                 parent,
-                HasAuthorize(member, field),
-                member.IsDefined(typeof(AllowAnonymousAttribute), inherit: true),
+                declaration.HasAuthorize,
+                declaration.AllowAnonymous,
                 _configuration.AuthorizationRequired
             );
 
@@ -127,7 +193,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
                     fieldPath,
                     TypeExtensionExposureRule.BuildMessage(
                         fieldPath,
-                        $"{member.DeclaringType?.FullName}.{member.Name}",
+                        resolver,
                         DescribeParent(objectType.RuntimeType, parent),
                         violation
                     )
@@ -136,6 +202,52 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
         }
     }
 
+    // ── Reading a declaration ───────────────────────────────────────────
+
+    /// <summary>
+    /// The posture a resolver declares: its own attributes, plus the ones on its
+    /// <c>[ExtendObjectType]</c> class.
+    /// </summary>
+    /// <remarks>
+    /// The class-level half is the reason Trax owns this attribute rather than deferring to
+    /// HotChocolate's. HotChocolate applies a class-level attribute to the type being extended, so
+    /// on a <c>[TraxAllowAnonymous]</c> entity it re-locks the whole entity and on a root type it
+    /// sets the posture of every operation in the schema. <c>[TraxAuthorize]</c> on an extension
+    /// class applies to the fields that extension contributes, which is what someone writing it
+    /// there means. The declaring type is only consulted when it is not the type being extended,
+    /// so an entity's own class attribute is left to the type-level directive that already
+    /// carries it.
+    /// </remarks>
+    private static TraxAuthorizationDeclaration Declaration(Type runtimeType, MemberInfo member)
+    {
+        var own = member is MethodInfo method
+            ? TraxAuthorization.Read(method)
+            : new TraxAuthorizationDeclaration([], false, []);
+
+        if (member.DeclaringType is not { } declaring || declaring == runtimeType)
+            return own;
+
+        var fromClass = TraxAuthorization.Read(declaring);
+
+        return new TraxAuthorizationDeclaration(
+            [.. own.Authorize, .. fromClass.Authorize],
+            own.AllowAnonymous || fromClass.AllowAnonymous,
+            [
+                .. own
+                    .ForeignAttributes.Concat(fromClass.ForeignAttributes)
+                    .Distinct(StringComparer.Ordinal),
+            ]
+        );
+    }
+
+    /// <summary>
+    /// The resolver behind a field, when it is a method Trax can read attributes off. A field with
+    /// no member is a resolver built inline (Trax's own <c>discover</c> and <c>operations</c>
+    /// entry fields are built this way), which has no declaration site for an attribute.
+    /// </summary>
+    private static MethodInfo? Resolver(ObjectFieldConfiguration field) =>
+        (field.ResolverMember ?? field.Member) as MethodInfo;
+
     /// <summary>
     /// The CLR member behind a field that a type extension contributed, or <c>null</c> when the
     /// field is not one.
@@ -143,9 +255,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
     /// <remarks>
     /// A member declared by the object's own runtime type, or by a base or interface of it, is a
     /// natural member of the type and carries the type's own posture. A member declared anywhere
-    /// else was bolted on. A field with no member at all is a resolver built inline (Trax's own
-    /// <c>discover</c> and <c>operations</c> entry fields are built this way), which has no
-    /// declaration site for an attribute and is gated by the code that wrote it.
+    /// else was bolted on.
     /// </remarks>
     private static MemberInfo? ExtensionMember(Type runtimeType, ObjectFieldConfiguration field)
     {
@@ -155,24 +265,6 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
             ? member
             : null;
     }
-
-    /// <summary>
-    /// Whether the field is gated. The attribute is the normal answer; the directive covers a
-    /// field gated from a <c>ConfigureSchema</c> callback with <c>descriptor.Authorize()</c>,
-    /// which leaves no attribute to read.
-    /// </summary>
-    private static bool HasAuthorize(MemberInfo member, ObjectFieldConfiguration field) =>
-        member.IsDefined(typeof(AuthorizeAttribute), inherit: true)
-        || (
-            field.HasDirectives
-            && field.Directives.Any(d =>
-                d.Value is AuthorizeDirective
-                || (
-                    d.Type?.ToString()?.Contains("authorize", StringComparison.OrdinalIgnoreCase)
-                    ?? false
-                )
-            )
-        );
 
     private TypeExtensionParentPosture ResolveParentPosture(Type runtimeType)
     {
@@ -184,17 +276,6 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
             ? posture
             : TypeExtensionParentPosture.NotExposed;
     }
-
-    /// <summary>
-    /// Whether a type declares a posture on itself, which HotChocolate applies to the type being
-    /// extended rather than to the extension's own fields.
-    /// </summary>
-    private static bool DeclaresPosture(Type? type) =>
-        type is not null
-        && (
-            type.IsDefined(typeof(AuthorizeAttribute), inherit: true)
-            || type.IsDefined(typeof(AllowAnonymousAttribute), inherit: true)
-        );
 
     private static string DescribeParent(Type runtimeType, TypeExtensionParentPosture parent) =>
         parent is TypeExtensionParentPosture.Anonymous && RootTypes.Contains(runtimeType)
