@@ -16,9 +16,9 @@
       },
       "FluentAssertions": {
         "type": "Direct",
-        "requested": "[8.10.0, )",
-        "resolved": "8.10.0",
-        "contentHash": "yGvv+xp0gHFgGwhQcGoDdKIrhLhPi3zYYWWLLHPMctr+G6PWD7QH8L4wqoa5WRZquPbfSV/cP1MraI7ppAHrWw=="
+        "requested": "[8.11.0, )",
+        "resolved": "8.11.0",
+        "contentHash": "dZqOxys9uY/0vO5BAwFtDECkFNSr9vWGwHa1fwZyuM1xAMbI4wiPTUBR2nH5e6R2/bQkXegxFY1B/oU1yqNNOw=="
       },
       "Microsoft.CodeAnalysis.CSharp": {
         "type": "Direct",
@@ -93,8 +93,8 @@
       },
       "GraphQL.Analyzers": {
         "type": "Transitive",
-        "resolved": "8.8.4",
-        "contentHash": "uzsOFK6wKUjefBhejWX6bzomjAM2tgqFWdjvTK26skYzGZPqA9r4Ra+AeOR3aARWlQetmB1T7nG5fIMfZfyLQw=="
+        "resolved": "8.8.5",
+        "contentHash": "2pmvrDAPbjNZfl7CB19cKpQ5y92A+tb1aPVZepz46KTx00/7nTojBTL9iJAOFVoKbq0I0sdZjj60aJLFKY/z8Q=="
       },
       "GraphQL.Client.Abstractions": {
         "type": "Transitive",
@@ -119,35 +119,35 @@
       },
       "GreenDonut": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "/A/tTBN71+2g1Q4SIWF2fr0RfzA0TCd3fA5JXH1ziI3wMYo5qEDkk8GMFelyO9UfaWuKFwyGcJyxuJfziVv72Q==",
+        "resolved": "16.6.6",
+        "contentHash": "lZKrMdIeHGjUv+qDrKfBNP/ZZx+i5m+/fDzwmmd2oESw4CqJHpkr8FZjgNMV8GMSq9PonNCp/Ja1hq9D4AUhLQ==",
         "dependencies": {
-          "GreenDonut.Abstractions": "16.6.2",
+          "GreenDonut.Abstractions": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
           "Microsoft.Extensions.ObjectPool": "10.0.0"
         }
       },
       "GreenDonut.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "bqpPN8uw6d62vJAYXSD3vus6sj5acggpaeEuF+L+g+U67Qq0PGZyiFANKPJZgU1Sj83YA7VxZzo7AlyqCimsRw=="
+        "resolved": "16.6.6",
+        "contentHash": "uY9vLMTLBFSg+nRRjObyuZoD8uX2kDgtOASJhL28f631lnRCB32B3oGAOkYnlyL549xOZz4IfWZbl/SrHjo/rg=="
       },
       "GreenDonut.Data": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "TW9Xqz9VlW0HDApGReuQrlOkWinenqWYjEhItTYeZdiAJjKkB1h42fqGUpxi7ODkG1pPhO1Zna7RziWOwvSYlg==",
+        "resolved": "16.6.6",
+        "contentHash": "K10e03FamHWN255k5qNOQhf1qHFFcGZwOhpDVcACvfj6ibb8DD6v3lO0K/oxCywHkh4oA+DMvKL5DBuUjS+WYQ==",
         "dependencies": {
-          "GreenDonut": "16.6.2",
-          "GreenDonut.Data.Abstractions": "16.6.2"
+          "GreenDonut": "16.6.6",
+          "GreenDonut.Data.Abstractions": "16.6.6"
         }
       },
       "GreenDonut.Data.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "17GBXapEl35p+U0nRXX2SVyi+cL2OzMqonw2JyBHVILyNVwbG9wV2yqlaQKUeoqWT/1a0w5PIiTye4doxx107A==",
+        "resolved": "16.6.6",
+        "contentHash": "ZDni43zSbDWSwRY6A2C9qd60thJ76zlKpi8lucEXOC0fGsiThBQcl/zhTJQZodwwR/sdsIRbuSW2bEN13eWGkw==",
         "dependencies": {
-          "GreenDonut.Abstractions": "16.6.2",
-          "GreenDonut.Data.Primitives": "16.6.2"
+          "GreenDonut.Abstractions": "16.6.6",
+          "GreenDonut.Data.Primitives": "16.6.6"
         }
       },
       "GreenDonut.Data.EntityFramework": {
@@ -161,17 +161,17 @@
       },
       "GreenDonut.Data.Primitives": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "IoTdzMuRMfspuQGDrgf6tHK2cNw3zQvKi03KTbB73BoI4Mi0oz4z6WsGR4UEVBW4v4hHLTlLJHioZFT0oILY8g=="
+        "resolved": "16.6.6",
+        "contentHash": "P9EJYUGc2GelJ40MH1fyU8H/nWl9nWQPZpJeteIhtJ23TA8XeptM/ykWTOVTHHcNM1ucPoKOo6TOv4MoZWX7MA=="
       },
       "HotChocolate.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "ClhlFnbO4BNieKU0XDww/SY/PMBl7tOiYwa/eYktwqO3YdiEj1JIpNBiOmxosufKYchJ63/Th6v307zfJojAQA==",
+        "resolved": "16.6.6",
+        "contentHash": "ZgVcoWqZFy87AQ7Imy/SNNo99QjLYlYATcM7ITWaqJmBriFR2Hn8i+woEq5Y/uPm+AIScKs8XfzR07jWaWSWIw==",
         "dependencies": {
-          "HotChocolate.Execution.Abstractions": "16.6.2",
-          "HotChocolate.Language": "16.6.2",
-          "HotChocolate.Primitives": "16.6.2"
+          "HotChocolate.Execution.Abstractions": "16.6.6",
+          "HotChocolate.Language": "16.6.6",
+          "HotChocolate.Primitives": "16.6.6"
         }
       },
       "HotChocolate.AspNetCore.Pipeline": {
@@ -196,153 +196,153 @@
       },
       "HotChocolate.Caching.Memory": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "dchJCfV4ZgDvV6qtLgQx+3m9CQcByvS9LmTrIa/fd9tmjrMD782QgWZzGzfKg6JgUc7SQgC3g/3KFOaOxcistg=="
+        "resolved": "16.6.6",
+        "contentHash": "Ltm3nMTRtl4w+1vaK1xrbdiA3GsG6Sh1f18S+B4o9VgexeBO73o9K2FqGaxI2mJhXzxbE/zXR6aUXoIWTMbdHQ=="
       },
       "HotChocolate.Execution.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "FKrCBEB42RP9D8TPo2rE4rzERfQyPGj5Z/OZxvroaBP76B5ptrEUprcVcHHL5fj8J2slqJk3lpG5Akz+TjOYpQ==",
+        "resolved": "16.6.6",
+        "contentHash": "5ODUbAkNH/ChmyHaaNkypnerEJbc7vhBM1N0BF82XCiCXbUaCK0mOm4kkciVCBDVLoS7TfrAOTvoymxWOjX/FA==",
         "dependencies": {
-          "HotChocolate.Features": "16.6.2",
-          "HotChocolate.Language.SyntaxTree": "16.6.2",
-          "HotChocolate.Language.Web": "16.6.2",
-          "HotChocolate.Primitives": "16.6.2",
-          "HotChocolate.Text.Json": "16.6.2",
-          "HotChocolate.Types.Abstractions": "16.6.2",
-          "HotChocolate.Utilities.Buffers": "16.6.2",
-          "HotChocolate.Utilities.Tasks": "16.6.2",
+          "HotChocolate.Features": "16.6.6",
+          "HotChocolate.Language.SyntaxTree": "16.6.6",
+          "HotChocolate.Language.Web": "16.6.6",
+          "HotChocolate.Primitives": "16.6.6",
+          "HotChocolate.Text.Json": "16.6.6",
+          "HotChocolate.Types.Abstractions": "16.6.6",
+          "HotChocolate.Utilities.Buffers": "16.6.6",
+          "HotChocolate.Utilities.Tasks": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "HotChocolate.Execution.Configuration.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "PmoI2IX57BTnrrvPQJnfqtlRogMohTueuqfQx6ZzBfGVeBbCM5ZOgVZ4oI/7WNANkvGSsh/dmkmeyyIx+fSlmw==",
+        "resolved": "16.6.6",
+        "contentHash": "JF8VLYGa97+Gz1eUeylk4Y2L1asZdrsNtOeeJaKF46IGV4rTm/3YVsERD0wUI8KbpzZbl/VPBG4aoOB3gVIifQ==",
         "dependencies": {
-          "HotChocolate.Abstractions": "16.6.2",
+          "HotChocolate.Abstractions": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "HotChocolate.Execution.Operation.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "poY8/O5SZoYKXx0u+wr8SPZ6ed8qXelzXaXnCgtxU3/OMLzhjtRFm5V3++jLLPT+07Si4yWifmuwSgCR31iA/w==",
+        "resolved": "16.6.6",
+        "contentHash": "mHx1jtbHuqyovC1+2c+icUmQhK9Wj0POY+EB7UO4njiLUPIz+IIeRNDoykV8fyOUPJEXojbbYk7SsiIw0nFvXg==",
         "dependencies": {
-          "HotChocolate.Features": "16.6.2",
-          "HotChocolate.Types.Abstractions": "16.6.2"
+          "HotChocolate.Features": "16.6.6",
+          "HotChocolate.Types.Abstractions": "16.6.6"
         }
       },
       "HotChocolate.Execution.Pipeline": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "0wzE3mmXe4vwP6n3V+1NQ1lX24yFTUFiYOr2f1j9M6wAHlD7aCja9ObfwSyR9qTqyovU2UOiFv/aZuns7oz8LA==",
+        "resolved": "16.6.6",
+        "contentHash": "Hp+G4S4OBsV72KPXfcO4jKAaDZIPqm56ElJX6Oy+AGN1xhM9hcMGu3gc3vJ8beJA/9XQCpu7koDMz8EqTmkv5Q==",
         "dependencies": {
-          "HotChocolate.Execution.Abstractions": "16.6.2",
-          "HotChocolate.Validation": "16.6.2",
+          "HotChocolate.Execution.Abstractions": "16.6.6",
+          "HotChocolate.Validation": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "HotChocolate.Features": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "A9lkq1U+WSrBKQuSkX208VTR5iHtlq/osm0+H4t+dNCb+m1qkik0+m33q681Cvt2Gsvm1yxQ/8eMr/d0tW+twA=="
+        "resolved": "16.6.6",
+        "contentHash": "HckZRX5UZEXvS/BKK9JuZ/18l+H627RcwDIFVfL+3Vz4hZEpGmKfXDaRHmEHPGpJYc5m8V4R6UB7Shw9Kdcaag=="
       },
       "HotChocolate.Fusion.Language": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "Qf+RLlW6NcK8T9dB3wSr8LGi6m64MmKfaq2OLauiZJlSJWhnfLe1uXVYwiBtq5PGOEF+XxRWVYDhTo98iSE9Ag=="
+        "resolved": "16.6.6",
+        "contentHash": "xCPJxpLnitSwBaYOReuRBDv+xl9UC3i+tSTtFMsqQeQY+heIiUC8Yw76rifKFjWPfEOrgJGgylhhEul+RUSIQw=="
       },
       "HotChocolate.Fusion.Utilities": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "5BwUS/LR2Gk7mxSo6ry7n8Xe85qKMXCY4oVywd0jz3mUpjxUoJoD9VZSi/Ny3thnGKsrcmPdohgpkWMJH2aMjQ==",
+        "resolved": "16.6.6",
+        "contentHash": "iYQ07jT5J3h/V70dD1i5MeXo42Q/X09bHsxmFndjwj6iz156dkO4jq3ZdYVvu2m8GjVd+Q88hN5+NeoCstxZEQ==",
         "dependencies": {
-          "HotChocolate.Execution.Abstractions": "16.6.2",
-          "HotChocolate.Fusion.Language": "16.6.2",
-          "HotChocolate.Language": "16.6.2",
-          "HotChocolate.Types.Abstractions": "16.6.2"
+          "HotChocolate.Execution.Abstractions": "16.6.6",
+          "HotChocolate.Fusion.Language": "16.6.6",
+          "HotChocolate.Language": "16.6.6",
+          "HotChocolate.Types.Abstractions": "16.6.6"
         }
       },
       "HotChocolate.Language": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "EJjynWC1BhOnGUW0t8KntQ65KqHdj1rTlpHUr20jOQwnQjX4vZfSc2webeN1OxFC4NQVLZZC/qYOoTsLt6Pgxg==",
+        "resolved": "16.6.6",
+        "contentHash": "QxlDmucMkejDL43z7tRtMiZ1yLwzLnGS1AyXxaHD96K7wuzJxf0wsJ8jQX25pC5PY9KsU/G2iTffLR/tHzmg4A==",
         "dependencies": {
-          "HotChocolate.Language.SyntaxTree": "16.6.2",
-          "HotChocolate.Language.Utf8": "16.6.2",
-          "HotChocolate.Language.Visitors": "16.6.2",
-          "HotChocolate.Language.Web": "16.6.2"
+          "HotChocolate.Language.SyntaxTree": "16.6.6",
+          "HotChocolate.Language.Utf8": "16.6.6",
+          "HotChocolate.Language.Visitors": "16.6.6",
+          "HotChocolate.Language.Web": "16.6.6"
         }
       },
       "HotChocolate.Language.SyntaxTree": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "2j/S3JVqvzyQa4z2BtkparMEkptdV+DEUSj4i8QR1zV8n/Aplvk4polFEpuxquXt+hwgwztmh2z75nOmnOvzXw==",
+        "resolved": "16.6.6",
+        "contentHash": "IqVE/DZdPeWSWFeaQXDoYYFKmwosHKp8uANZ2UaaLR4CT30Z5HE5N6KkK1PlDybWyURF/kCd8rjQyGG71qt3/Q==",
         "dependencies": {
-          "HotChocolate.Utilities.Buffers": "16.6.2",
+          "HotChocolate.Utilities.Buffers": "16.6.6",
           "Microsoft.Extensions.ObjectPool": "10.0.0"
         }
       },
       "HotChocolate.Language.Utf8": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "gVQU/LD2YGB6ar8jrJQ69zKlvIBtZch1LULPH+1dWSAIVmepqyGTNqTk86GASCgEExT2OkUJPLBBYgo62ZvR4w==",
+        "resolved": "16.6.6",
+        "contentHash": "fKcLmQjXAMTSUun0pCwH4+7/WEhFs0bXUAobmixekXWmPIjX95wanLAbTY57AnaaCRTD0B6Lg/T+rE+tbkZv2g==",
         "dependencies": {
-          "HotChocolate.Language.SyntaxTree": "16.6.2",
-          "HotChocolate.Language.Utf8.SyntaxTree": "16.6.2",
-          "HotChocolate.Utilities.Buffers": "16.6.2"
+          "HotChocolate.Language.SyntaxTree": "16.6.6",
+          "HotChocolate.Language.Utf8.SyntaxTree": "16.6.6",
+          "HotChocolate.Utilities.Buffers": "16.6.6"
         }
       },
       "HotChocolate.Language.Utf8.SyntaxTree": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "EnPQIYUej6xpZfDrA+EBCjB4PySZ/1OId05n5I6PJ3ApZROh+dikIl1H97CL9IAT1R1m9HCIwDYTnOciPLKj2A==",
+        "resolved": "16.6.6",
+        "contentHash": "+L1Be1Vt+UtY+SGRjZ32RQKUVam/jEwV/XXBoLJl7ElcrvOYjya2g5UmSESqRRb8s75tfw6Wt3iPq1S/G/zEMQ==",
         "dependencies": {
-          "HotChocolate.Language.SyntaxTree": "16.6.2",
-          "HotChocolate.Utilities.Buffers": "16.6.2"
+          "HotChocolate.Language.SyntaxTree": "16.6.6",
+          "HotChocolate.Utilities.Buffers": "16.6.6"
         }
       },
       "HotChocolate.Language.Visitors": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "AWYLpsrhH372AUY2Z1ggloh3AiCG+ppRClSYid9O7IWvLk0NEMCnH0yoHRR+fvtjiTyduCGRkh4QkxAaQi3EZg==",
+        "resolved": "16.6.6",
+        "contentHash": "yQwCIX3rXuBQp6+hqp8brNGtL+1skjYC+KM36BAIx6/Bd9R61TQS/F8AHmOWg4F/YSF8UjtmZ7kWZ7hZMTvTww==",
         "dependencies": {
-          "HotChocolate.Language.SyntaxTree": "16.6.2"
+          "HotChocolate.Language.SyntaxTree": "16.6.6"
         }
       },
       "HotChocolate.Language.Web": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "gepIvjgHEUuS9CPB2o7uo6Q9ci4YAS7LX+y9ZgVxs+azAdVP8kQAVcCkSHp640TPgmi2jcMt5PhYyZtVn2WHcQ==",
+        "resolved": "16.6.6",
+        "contentHash": "bZJihMiz0gk08qNtv5oIOATjrdjVZ5mGhEeTDxtskx+o1nJfrsakuT5NcKoX2P7PjkyvTSxSa41nQTJ5sS294g==",
         "dependencies": {
-          "HotChocolate.Language.Utf8": "16.6.2",
-          "HotChocolate.Language.Visitors": "16.6.2"
+          "HotChocolate.Language.Utf8": "16.6.6",
+          "HotChocolate.Language.Visitors": "16.6.6"
         }
       },
       "HotChocolate.PersistedOperations.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "zCQGp9HXjY5Xlcv7St8+G9YaWtjqE+PtAkVlyNktxQwkqACOz7WyEo0Ik7YIn0x6jgi3+VAOe53UoQD3SoHGDg==",
+        "resolved": "16.6.6",
+        "contentHash": "3i/iVJOUMC5mrqQmu69AX317DmzxRtlVCenlj8fzrkZ87ANGTHtLmuzoJX5WQp05fSl4HWebfePA/rmm6i37Eg==",
         "dependencies": {
-          "HotChocolate.Execution.Abstractions": "16.6.2"
+          "HotChocolate.Execution.Abstractions": "16.6.6"
         }
       },
       "HotChocolate.PersistedOperations.Pipeline": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "4yQ6Fj+i2Rxn0h20IpV08lkqOqso9cVS4IbE/8Gi/vn4GTAPY2LNFMfxc6Hq/3cDFQxaFCavnnVPp4NPbRnhiA==",
+        "resolved": "16.6.6",
+        "contentHash": "iKV66KHjbz/8jwGfW59KUzR3ziCtxCxdLyiBOnXlk3nY2uXcS0NQDw/de5Bg76cXX0l1hCvhTGSxS5vzgm2cug==",
         "dependencies": {
-          "HotChocolate.PersistedOperations.Abstractions": "16.6.2",
+          "HotChocolate.PersistedOperations.Abstractions": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "HotChocolate.Primitives": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "vT0OrbDrBZiaAM3pgtVrJZRoon/fiYxvVheGtVQso3UyvgWGdnfUyZQssrys83yW8epR/8N49nC/buNW+2qtAQ==",
+        "resolved": "16.6.6",
+        "contentHash": "Cu0hACIptsex/zJbc2mU6UN3TaCEOVGCfVrVDutj6835DOgmQCKQzy1PJhpWsZXrkSgiNw5oQOWFxpbsgfMiaA==",
         "dependencies": {
-          "HotChocolate.Language": "16.6.2"
+          "HotChocolate.Language": "16.6.6"
         }
       },
       "HotChocolate.Subscriptions": {
@@ -367,17 +367,17 @@
       },
       "HotChocolate.Text.Json": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "Hy2QvCW1ytOvBcXkG/jC8XsIK7bmP/UhpoMKkXv+3CskVMT9m7H6oGAAno0oqwx6aX8/F8Xc4ZJhRH0kZxtpsw=="
+        "resolved": "16.6.6",
+        "contentHash": "CaoTNkC6lDYYz6TwIkt7HbrCqyW1syDK52FPuEVJ4XI6SL9LiIC/UfcMP9rNoQ+/hry7tYlapLz57Y55oucK+A=="
       },
       "HotChocolate.Transport.Formatters": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "TqHU/Dz09zK7UYABL4O4N1PODYf2VuhtLC6p9b7FgYPb04m3ttCOaSc1sMeyW7yiTB19ITTcNDQg1J/FXHioYw==",
+        "resolved": "16.6.6",
+        "contentHash": "bdYDHRolCE2N8YqtbyUwUV5ivfwjyWIc4xISDXzOb47BOyJOYZUuh24zRoGQ7HPHwcyIfc11d2wrrOOd8c/dlQ==",
         "dependencies": {
-          "HotChocolate.Execution.Abstractions": "16.6.2",
-          "HotChocolate.Utilities.Buffers": "16.6.2",
-          "HotChocolate.Utilities.Tasks": "16.6.2"
+          "HotChocolate.Execution.Abstractions": "16.6.6",
+          "HotChocolate.Utilities.Buffers": "16.6.6",
+          "HotChocolate.Utilities.Tasks": "16.6.6"
         }
       },
       "HotChocolate.Transport.Sockets": {
@@ -387,28 +387,28 @@
       },
       "HotChocolate.Types": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "mGIviU2hDm5dOjymq2xgTCJ0WXZkfzn87e+Dw1X8va3zRR/xINYAIJLdeC79L8hDvozaD1MykK5xC3WjHTBWgg==",
+        "resolved": "16.6.6",
+        "contentHash": "zZmbJyegBES66Tll7GmFQpb6lryHMUCvF3rmHP22lHNNEFJSnwWusGZE7Wb4R5xBXfYZ1SD/eAz3LXGwLYkbTw==",
         "dependencies": {
-          "GreenDonut": "16.6.2",
-          "GreenDonut.Data.Primitives": "16.6.2",
-          "HotChocolate.Abstractions": "16.6.2",
-          "HotChocolate.Caching.Memory": "16.6.2",
-          "HotChocolate.Execution.Abstractions": "16.6.2",
-          "HotChocolate.Execution.Configuration.Abstractions": "16.6.2",
-          "HotChocolate.Execution.Operation.Abstractions": "16.6.2",
-          "HotChocolate.Execution.Pipeline": "16.6.2",
-          "HotChocolate.Features": "16.6.2",
-          "HotChocolate.Fusion.Language": "16.6.2",
-          "HotChocolate.Fusion.Utilities": "16.6.2",
-          "HotChocolate.PersistedOperations.Abstractions": "16.6.2",
-          "HotChocolate.PersistedOperations.Pipeline": "16.6.2",
-          "HotChocolate.Text.Json": "16.6.2",
-          "HotChocolate.Transport.Formatters": "16.6.2",
-          "HotChocolate.Types.Abstractions": "16.6.2",
-          "HotChocolate.Utilities": "16.6.2",
-          "HotChocolate.Utilities.Base36": "16.6.2",
-          "HotChocolate.Utilities.DependencyInjection": "16.6.2",
+          "GreenDonut": "16.6.6",
+          "GreenDonut.Data.Primitives": "16.6.6",
+          "HotChocolate.Abstractions": "16.6.6",
+          "HotChocolate.Caching.Memory": "16.6.6",
+          "HotChocolate.Execution.Abstractions": "16.6.6",
+          "HotChocolate.Execution.Configuration.Abstractions": "16.6.6",
+          "HotChocolate.Execution.Operation.Abstractions": "16.6.6",
+          "HotChocolate.Execution.Pipeline": "16.6.6",
+          "HotChocolate.Features": "16.6.6",
+          "HotChocolate.Fusion.Language": "16.6.6",
+          "HotChocolate.Fusion.Utilities": "16.6.6",
+          "HotChocolate.PersistedOperations.Abstractions": "16.6.6",
+          "HotChocolate.PersistedOperations.Pipeline": "16.6.6",
+          "HotChocolate.Text.Json": "16.6.6",
+          "HotChocolate.Transport.Formatters": "16.6.6",
+          "HotChocolate.Types.Abstractions": "16.6.6",
+          "HotChocolate.Utilities": "16.6.6",
+          "HotChocolate.Utilities.Base36": "16.6.6",
+          "HotChocolate.Utilities.DependencyInjection": "16.6.6",
           "Microsoft.Extensions.DependencyInjection": "10.0.0",
           "Microsoft.Extensions.ObjectPool": "10.0.0",
           "Microsoft.Extensions.Options": "10.0.0"
@@ -416,29 +416,29 @@
       },
       "HotChocolate.Types.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "1rkTEBf4hCb0uNgEc+7HcIEasHcZOpDsoScKyfubp1YtiVY57LmiIPv5rDxNZpnNa93dHM0ctHkLlvcshNOx3A==",
+        "resolved": "16.6.6",
+        "contentHash": "OseH+NiVy+6zmx2nqHlwxojQvL5okBRzDLea5ppVGLb++4R7x3ipwGSlqpoLVOrkkV4km26mHMv1dh4sVlLgxA==",
         "dependencies": {
-          "HotChocolate.Features": "16.6.2",
-          "HotChocolate.Primitives": "16.6.2"
+          "HotChocolate.Features": "16.6.6",
+          "HotChocolate.Primitives": "16.6.6"
         }
       },
       "HotChocolate.Types.CursorPagination": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "bpfVaBG55y2QC33jyAOfck/nw4LHH95x3CmF4AUqlOWu+Rr9IFuCDwF/ZMT5y4LAEEq3pMntsLkaY5fOUdyimQ==",
+        "resolved": "16.6.6",
+        "contentHash": "YaC8PvszRJLEumc6siMSSEEtcqQcNu6vNS5FvejcMusKzkg2AuNGfDWoPavCJWXqERodx7I1W94k3iFuGRbdJg==",
         "dependencies": {
-          "HotChocolate.Execution.Configuration.Abstractions": "16.6.2",
-          "HotChocolate.Types": "16.6.2"
+          "HotChocolate.Execution.Configuration.Abstractions": "16.6.6",
+          "HotChocolate.Types": "16.6.6"
         }
       },
       "HotChocolate.Types.CursorPagination.Extensions": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "0p2DF6rgysZVvwEvE3oIbVUdYl6EaITYGA2lhImCqXaHHHV8XdoT9aB0lp8lFwoEoQQO1jCX6fbZHSx2hUZBWg==",
+        "resolved": "16.6.6",
+        "contentHash": "V3/GKq6qAdurschzyQOUMMP9iJq/izNEj1M4tATFtfOQIbdGHLCp696zij8b3n1dt5ojFudIe8pzhkvri+gB4g==",
         "dependencies": {
-          "GreenDonut.Data": "16.6.2",
-          "HotChocolate.Types.CursorPagination": "16.6.2"
+          "GreenDonut.Data": "16.6.6",
+          "HotChocolate.Types.CursorPagination": "16.6.6"
         }
       },
       "HotChocolate.Types.Errors": {
@@ -477,44 +477,44 @@
       },
       "HotChocolate.Utilities": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "1p6gufT+KtspLyXwgUIWfUHY9/OL7h+/yIkbHzYCCHrdaw5qDPL+EVlVZ4f0yF4Uruow1wcdmDaXzT/ONBDZcg==",
+        "resolved": "16.6.6",
+        "contentHash": "H388qFzIU/6xk4p4TiCjOV4Ix39M/j++skp4fY+hJDaoNpK+pEM7HG5spCO4YTDpujmtbsXfld0O6zvw3uOioQ==",
         "dependencies": {
-          "HotChocolate.Utilities.Buffers": "16.6.2",
-          "HotChocolate.Utilities.Tasks": "16.6.2",
+          "HotChocolate.Utilities.Buffers": "16.6.6",
+          "HotChocolate.Utilities.Tasks": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "HotChocolate.Utilities.Base36": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "+DCyC+4ATVRq+UYXXj/GO0HoZF19+N9NYv5fQ8SDmeKiH2mfHL7lih90mqwTAhlO/dC+qjpWa+xKT5QdNsxmaA=="
+        "resolved": "16.6.6",
+        "contentHash": "OabJ+pFZOh2Nc5dGMwn7Q1c/kOJzU9UvjdoN/DKAJBtuTtZXjnR/AQtX8tP8o2NPmXJhmFHYClTSJXFE9/G4Qw=="
       },
       "HotChocolate.Utilities.Buffers": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "uHBYJ+Qwj4iYxcBGj0bchm/93rZznPUExRAkL4okXzdJJwIndEKx+nD732/K36BFwxhM48zt+9CO8LAvifhO4g=="
+        "resolved": "16.6.6",
+        "contentHash": "90Iv2tz6e5ohafySknjwr499U6O1+ytOOZlZ9VhEkRHvQ8Dq+G52Zp8YDg7IOoym/sA1ITTcCAikZTU6S9r3bA=="
       },
       "HotChocolate.Utilities.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "wnK2aqF307PWGZXcKo/PPynRFuwx5ElLF4j8ixB03vzPG/eL10FGz4saN4TbPMHGTve1CZ8ywFWQ3ilCjhu4YA==",
+        "resolved": "16.6.6",
+        "contentHash": "6b9DvX5afleeqWxezuTkLXYx78GYINfc6Tuun/ueQLRmLJzBErF5Zp8jTw+9XNhtPNCMkY0xqdukfY5hLAKFtA==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection": "10.0.0"
         }
       },
       "HotChocolate.Utilities.Tasks": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "RzSzuVdUvpzpV9qEyFB+BBCH3fBRhCTSlQF2er3LMF32X5nf56a/UslEc4150HCmuOK1pgXETc2S0Q4zpJld7A=="
+        "resolved": "16.6.6",
+        "contentHash": "D2p/wrYGaBgDTNqQiyutijlAI6Yt9XlryuX0PrLFOLWLbhMm0KZcvKCCoTm59zMYya5mO/wd2vxAYrkIrStK/Q=="
       },
       "HotChocolate.Validation": {
         "type": "Transitive",
-        "resolved": "16.6.2",
-        "contentHash": "ktAKJmUxRwFPQ+wfa5iexU+UcDyLWvAEz/dcBKVsnBifGCpCgJHHHx4yax9V6oc6oRjvPz1SVAYMHybTailXKg==",
+        "resolved": "16.6.6",
+        "contentHash": "+Iocxh1QbBh4tA9vwNqo8ahfvJIDI6OHtrJHy0uHDwAPy0kDZIJ7nIDdq4c+VjiT0MzvAXYZXYxmd1FF6KrP7g==",
         "dependencies": {
-          "HotChocolate.Execution.Abstractions": "16.6.2",
-          "HotChocolate.Types.Abstractions": "16.6.2",
+          "HotChocolate.Execution.Abstractions": "16.6.6",
+          "HotChocolate.Types.Abstractions": "16.6.6",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
@@ -556,13 +556,13 @@
       },
       "Microsoft.EntityFrameworkCore.Abstractions": {
         "type": "Transitive",
-        "resolved": "10.0.9",
-        "contentHash": "GRMaiPkqYna/gCsyDffYDWmefGPC3hDrdMw+2rrGcQwhs6uZOsaMQXMJnoXQ35tx9SkBV2ieRRU9N/jLOO6BZw=="
+        "resolved": "10.0.12",
+        "contentHash": "kDrux7T6C3V/YYYe2LXr7x6AEsVyq5Y2YoTE9er1SwbDtap3z1g8RgxNh5eKQVyB4T+DKvBBJ4Ezd/VZzJQJZg=="
       },
       "Microsoft.EntityFrameworkCore.Analyzers": {
         "type": "Transitive",
-        "resolved": "10.0.9",
-        "contentHash": "aiEFB+C5EsZGqxvMPazE07hbWsp4iPaufJpanGt5O+lrwv7mJLrqma5haVIgFAPCyhQkmk75XSCEubT1zUjxtA=="
+        "resolved": "10.0.12",
+        "contentHash": "Kd4o2oO1A6dfKxjz5LS16QyLtpCFTUiFWwmBABETAXRsSImBdRdWeKjSgbbRhAMiV3a3/nWr95ZtzClT4uaADQ=="
       },
       "Microsoft.EntityFrameworkCore.Relational": {
         "type": "Transitive",
@@ -615,12 +615,12 @@
       },
       "Microsoft.Extensions.Logging": {
         "type": "Transitive",
-        "resolved": "10.0.11",
-        "contentHash": "nUOJwgFkSiLHiVGFpU22pIJtuWYewuSYQ3JVuP/gdK8ASMT807Px+TYQiRWs6uSsOmoyFTaVCwKXTasczV6BpA==",
+        "resolved": "10.0.12",
+        "contentHash": "6I46fTPfgYkrjRYfRXbho9WOvOelTnNjWuZws/hzGHDASH1LEJeA4VKK9k3wJvido8o7jJSB5WkMTonX7HM1bA==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection": "10.0.11",
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.11",
-          "Microsoft.Extensions.Options": "10.0.11"
+          "Microsoft.Extensions.DependencyInjection": "10.0.12",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Options": "10.0.12"
         }
       },
       "Microsoft.Extensions.ObjectPool": {
@@ -630,17 +630,17 @@
       },
       "Microsoft.Extensions.Options": {
         "type": "Transitive",
-        "resolved": "10.0.11",
-        "contentHash": "eY1GAKcTfD2maP27J84X9IovT3yjHJ2dVDzPmDg6/XqYvt3jMzJhtfQCLjG9pVsZGAd+8DQ2QrjaDcs2+VQLGw==",
+        "resolved": "10.0.12",
+        "contentHash": "TDYD33TSRpXKZWlmTXNlj5kCihxatmv2Ec1u6C+bMYLphCS7PoSLE9Pjd/nunDoE7yETk+LLKjVJX78HYtWjpA==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.11",
-          "Microsoft.Extensions.Primitives": "10.0.11"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Primitives": "10.0.12"
         }
       },
       "Microsoft.Extensions.Primitives": {
         "type": "Transitive",
-        "resolved": "10.0.11",
-        "contentHash": "SXcz+kF+4Oo9b1+55zntpJFYfwb1jw66ioxptyNOOTDc8g2FHnBFWjZpsWfCvZIhzr0x+4e2trVTs4OKwQfBtw=="
+        "resolved": "10.0.12",
+        "contentHash": "dYfCLR52UA+3DL7C4I/pvSaRPkNqxrUAQmbFL2u0zvYKKzqgrFCJl08Df+F1aYc8leu9JvpC9bsURUdpExcBXQ=="
       },
       "Microsoft.IdentityModel.Abstractions": {
         "type": "Transitive",
@@ -835,10 +835,10 @@
         "dependencies": {
           "HotChocolate.AspNetCore": "[16.6.2, )",
           "HotChocolate.AspNetCore.Authorization": "[16.6.2, )",
-          "HotChocolate.CostAnalysis": "[16.6.2, )",
-          "HotChocolate.Data": "[16.6.2, )",
+          "HotChocolate.CostAnalysis": "[16.6.6, )",
+          "HotChocolate.Data": "[16.6.6, )",
           "HotChocolate.Data.EntityFramework": "[16.6.2, )",
-          "HotChocolate.Execution.Projections": "[16.6.2, )",
+          "HotChocolate.Execution.Projections": "[16.6.6, )",
           "Trax.Api": "[1.99.99, )",
           "Trax.Api.Auth": "[1.99.99, )",
           "Trax.Api.Auth.Jwt": "[1.99.99, )"
@@ -847,29 +847,29 @@
       "trax.api.graphql.client": {
         "type": "Project",
         "dependencies": {
-          "GraphQL": "[8.8.4, )",
+          "GraphQL": "[8.8.5, )",
           "GraphQL.Client": "[6.1.0, )",
           "GraphQL.Client.Serializer.SystemTextJson": "[6.1.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.12, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.11, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.12, )"
         }
       },
       "trax.api.graphql.persistedoperations": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.EntityFrameworkCore": "[10.0.9, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.12, )",
           "RabbitMQ.Client": "[7.2.1, )",
           "Trax.Api.GraphQL": "[1.99.99, )"
         }
       },
       "GraphQL": {
         "type": "CentralTransitive",
-        "requested": "[8.8.4, )",
-        "resolved": "8.8.4",
-        "contentHash": "Ey/3R5ydkfriUG6PXiZPdeGkyLADQ/wZMgDBtHto5ZvSv+PtzpOD8YX0WAFvW3SA7Ldvwzw5S3RVBSB97imANA==",
+        "requested": "[8.8.5, )",
+        "resolved": "8.8.5",
+        "contentHash": "0dnaIzuzyRkpUfCBOWRLOnbTWcTpvK0pvWjgDTYoU3k/bu4Us1jkid7MPBhcth8I+6rg8SxhXFwNEenx53xUJg==",
         "dependencies": {
           "GraphQL-Parser": "9.5.0",
-          "GraphQL.Analyzers": "8.8.4"
+          "GraphQL.Analyzers": "8.8.5"
         }
       },
       "GraphQL.Client": {
@@ -936,26 +936,26 @@
       },
       "HotChocolate.CostAnalysis": {
         "type": "CentralTransitive",
-        "requested": "[16.6.2, )",
-        "resolved": "16.6.2",
-        "contentHash": "yIQ89WAkH07D+WKj+uhr56k7AzFVvE2MGyxekYl836gwJ0OCFFNifvYdUvCZ9upBKmHWm4jUpujFVUVcnIeJrg==",
+        "requested": "[16.6.6, )",
+        "resolved": "16.6.6",
+        "contentHash": "YXSTlgW8WFP35srHjhFjih9wLi1wWp1xpLrbslv9eAxuXUQIxeddB99ylgKpruclYZeQ22YgR4ANLDqjUkSsqw==",
         "dependencies": {
-          "HotChocolate.Types": "16.6.2"
+          "HotChocolate.Types": "16.6.6"
         }
       },
       "HotChocolate.Data": {
         "type": "CentralTransitive",
-        "requested": "[16.6.2, )",
-        "resolved": "16.6.2",
-        "contentHash": "STlU+MGdNJy3w0G1J5eVRclQ0VIHgksRk/Zul1QDmBYCOT+sy+tOUn1/HJIqNWWmixEQu6L0GMQP7aZ6pXA9Bg==",
+        "requested": "[16.6.6, )",
+        "resolved": "16.6.6",
+        "contentHash": "CKGaP1YniHVCvC/zkykbtZSMb57ms6F6LbBSbG4inf4X/JQee+eWt6gS0g++ommkZAPLoQTROPJlDSbTLhZhGQ==",
         "dependencies": {
-          "GreenDonut.Data": "16.6.2",
-          "GreenDonut.Data.Abstractions": "16.6.2",
-          "GreenDonut.Data.Primitives": "16.6.2",
-          "HotChocolate.Execution.Operation.Abstractions": "16.6.2",
-          "HotChocolate.Execution.Projections": "16.6.2",
-          "HotChocolate.Types": "16.6.2",
-          "HotChocolate.Types.CursorPagination.Extensions": "16.6.2"
+          "GreenDonut.Data": "16.6.6",
+          "GreenDonut.Data.Abstractions": "16.6.6",
+          "GreenDonut.Data.Primitives": "16.6.6",
+          "HotChocolate.Execution.Operation.Abstractions": "16.6.6",
+          "HotChocolate.Execution.Projections": "16.6.6",
+          "HotChocolate.Types": "16.6.6",
+          "HotChocolate.Types.CursorPagination.Extensions": "16.6.6"
         }
       },
       "HotChocolate.Data.EntityFramework": {
@@ -974,16 +974,16 @@
       },
       "HotChocolate.Execution.Projections": {
         "type": "CentralTransitive",
-        "requested": "[16.6.2, )",
-        "resolved": "16.6.2",
-        "contentHash": "Pl8XSlVzgniM0th7kAa/h6jFAfHypjlXivXmaj4JNld0TaA/cZg6TE893fyzDCz69yHh/0ROHNfn1gzg0YU13w==",
+        "requested": "[16.6.6, )",
+        "resolved": "16.6.6",
+        "contentHash": "i+F3rvbkM3kxJCMkkh8VUXy+ozAxIoxocJzANMEhuW1TWrU1XsB/2LbFKEZirOuHQx2TumCg2YZPhtE1bny7rA==",
         "dependencies": {
-          "GreenDonut.Data": "16.6.2",
-          "GreenDonut.Data.Abstractions": "16.6.2",
-          "GreenDonut.Data.Primitives": "16.6.2",
-          "HotChocolate.Caching.Memory": "16.6.2",
-          "HotChocolate.Execution.Configuration.Abstractions": "16.6.2",
-          "HotChocolate.Types": "16.6.2"
+          "GreenDonut.Data": "16.6.6",
+          "GreenDonut.Data.Abstractions": "16.6.6",
+          "GreenDonut.Data.Primitives": "16.6.6",
+          "HotChocolate.Caching.Memory": "16.6.6",
+          "HotChocolate.Execution.Configuration.Abstractions": "16.6.6",
+          "HotChocolate.Types": "16.6.6"
         }
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
@@ -997,14 +997,14 @@
       },
       "Microsoft.EntityFrameworkCore": {
         "type": "CentralTransitive",
-        "requested": "[10.0.9, )",
-        "resolved": "10.0.9",
-        "contentHash": "tu85SRzOT021V7EQlViCiAE7TqldVn469Y6lt5TEn/+XC4/MeNCHgMRSxqYuWqvF4zAQZUhCmtNEZuM3ss4LeA==",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "e7OrVN8U5yr4kuwdTHWBHGVQIVsGfMkAr0Ej1/BnrS989Q0XBVANpIzNZ2bc1GvMZ0/XwMt5InTnmKskxGy99Q==",
         "dependencies": {
-          "Microsoft.EntityFrameworkCore.Abstractions": "10.0.9",
-          "Microsoft.EntityFrameworkCore.Analyzers": "10.0.9",
-          "Microsoft.Extensions.Caching.Memory": "10.0.9",
-          "Microsoft.Extensions.Logging": "10.0.9"
+          "Microsoft.EntityFrameworkCore.Abstractions": "10.0.12",
+          "Microsoft.EntityFrameworkCore.Analyzers": "10.0.12",
+          "Microsoft.Extensions.Caching.Memory": "10.0.12",
+          "Microsoft.Extensions.Logging": "10.0.12"
         }
       },
       "Microsoft.Extensions.Caching.Memory": {
@@ -1050,11 +1050,11 @@
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.11, )",
-        "resolved": "10.0.11",
-        "contentHash": "Ljd0Uxoq5XpScD2Bg0nM/r3mwx7Ao5Uq24eo2ARxbGvqJ7Zht6rt2cJtwVRH4Cv+1ZVMdXz6TB43KbpmsxRrvQ==",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "+24lC4plfbEDNfLAdTV/SWKS7dW+16X4HdydO3R++134kSNTzcbYA4KpR1Hdh6uWisB8Za3AzwyOn+K+NxWIug==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.11"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12"
         }
       },
       "RabbitMQ.Client": {
