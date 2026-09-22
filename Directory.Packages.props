@@ -58,8 +58,8 @@
       Include="Microsoft.Extensions.DependencyInjection.Abstractions"
       Version="10.0.12"
     />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="NUnit" Version="4.6.1" />
