@@ -29,8 +29,9 @@ internal sealed class TraxOperationsServiceValidator(
                     + "operations would throw at request time. Register the backing services before the "
                     + "host starts:\n"
                     + "  - call AddScheduler(...) (registers IOperationsService + ITraxScheduler), or\n"
-                    + "  - for an API-only host, call AddTraxJobRunner() and\n"
-                    + "    services.AddScoped<IOperationsService, OperationsService>();"
+                    + "  - for an API-only host, call AddMediator(...) and AddTraxJobRunner(), then\n"
+                    + "    services.AddScoped<IOperationsService, OperationsService>(); OperationsService\n"
+                    + "    enqueues through the mediator, so it cannot be built without it."
             );
 
         if (mutationsExposed && !isService.IsService(typeof(ITraxScheduler)))
