@@ -170,6 +170,15 @@ public class OperationsMutations
                     + "saved only when SaveTrainParameters() is on."
             );
 
+        // An input over MaxParameterBytes is saved as a placeholder. Re-queueing it would run
+        // the train with defaults instead of with what it ran with.
+        if (IsTruncatedPlaceholder(meta.Input))
+            return new OperationResponse(
+                false,
+                Message: $"Execution {id}'s input was too large to save in full, so it cannot be "
+                    + "re-queued with what it ran with."
+            );
+
         var result = await operationsService.QueueTrainAsync(
             new QueueTrainInput(meta.Name, meta.Input),
             ct
@@ -216,5 +225,20 @@ public class OperationsMutations
         await db.SaveChanges(ct);
         changeSignal.Notify(ChangeDomain.Manifest);
         return new OperationResponse(true, Count: 1, Message: "Manifest updated");
+    }
+
+    private static bool IsTruncatedPlaceholder(string input)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(input);
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && document.RootElement.TryGetProperty("_truncated", out var truncated)
+                && truncated.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
     }
 }

@@ -28,6 +28,7 @@ namespace Trax.Api.Tests.Auth;
 /// <c>OperationsServiceAuthorizationTests</c> in Trax.Scheduler.</para>
 /// </summary>
 [TestFixture]
+[Property("adr", "Trax.Docs/adr/0017-a-callers-enqueue-goes-through-the-mediator.md")]
 public class QueueTrainAuthorizationTests
 {
     private const string QueueTrainMutation = """
@@ -104,6 +105,9 @@ public class QueueTrainAuthorizationTests
 
                         services.AddScoped(_ => Substitute.For<ITraxHealthService>());
                         services.AddScoped(_ => operations);
+                        services.AddScoped(_ =>
+                            Substitute.For<Trax.Mediator.Services.TrainExecution.ITrainExecutionService>()
+                        );
                         services.AddScoped(_ => Substitute.For<ITraxScheduler>());
                     })
                     .Configure(app =>
