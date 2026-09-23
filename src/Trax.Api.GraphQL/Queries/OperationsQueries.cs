@@ -483,7 +483,8 @@ public class OperationsQueries
                 m.CancellationRequested,
                 m.HostName,
                 m.HostEnvironment,
-                m.HostInstanceId
+                m.HostInstanceId,
+                m.FailureClass
             ))
             .ToListAsync(ct);
 
@@ -523,7 +524,8 @@ public class OperationsQueries
                 m.CancellationRequested,
                 m.HostName,
                 m.HostEnvironment,
-                m.HostInstanceId
+                m.HostInstanceId,
+                m.FailureClass
             ))
             .FirstOrDefaultAsync(ct);
     }
@@ -558,7 +560,11 @@ public class OperationsQueries
                 m.JunctionStartedAt,
                 m.HostName,
                 m.HostEnvironment,
-                m.HostInstanceId
+                m.HostInstanceId,
+                // ChildCount is filled in after projection; passed explicitly only because an
+                // expression tree cannot skip to a later argument by name.
+                0,
+                m.FailureClass
             ))
             .FirstOrDefaultAsync(ct);
 
@@ -606,7 +612,8 @@ public class OperationsQueries
                 m.CancellationRequested,
                 m.HostName,
                 m.HostEnvironment,
-                m.HostInstanceId
+                m.HostInstanceId,
+                m.FailureClass
             ))
             .ToListAsync(ct);
 
