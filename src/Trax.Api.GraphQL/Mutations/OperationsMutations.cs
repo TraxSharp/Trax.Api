@@ -161,6 +161,15 @@ public class OperationsMutations
         if (meta is null)
             return new OperationResponse(false, Message: $"Execution {id} not found.");
 
+        // An enqueue reads no input as an empty object, so re-queueing a run whose input was
+        // never saved would re-run it with defaults rather than with what it ran with.
+        if (string.IsNullOrWhiteSpace(meta.Input))
+            return new OperationResponse(
+                false,
+                Message: $"Execution {id} has no saved input to re-queue it with. Inputs are "
+                    + "saved only when SaveTrainParameters() is on."
+            );
+
         var result = await operationsService.QueueTrainAsync(
             new QueueTrainInput(meta.Name, meta.Input),
             ct

@@ -1152,6 +1152,35 @@ public class OperationsQueriesTests
     }
 
     [Test]
+    public async Task RequeueExecution_WithNoSavedInput_ReturnsFalseWithoutQueuing()
+    {
+        long id;
+        await using (var db = await _factory.CreateDbContextAsync(default))
+        {
+            var meta = Metadata.Create(
+                new CreateMetadata
+                {
+                    Name = "Trax.X.RequeueTrain",
+                    ExternalId = Guid.NewGuid().ToString("N"),
+                    Input = null,
+                }
+            );
+            await db.Track(meta);
+            await db.SaveChanges(default);
+            id = meta.Id;
+        }
+
+        var ops = Substitute.For<IOperationsService>();
+
+        var resp = await new OperationsMutations().RequeueExecution(id, _factory, ops, default);
+
+        resp.Success.Should().BeFalse();
+        resp.Message.Should().Contain("no saved input");
+        await ops.DidNotReceive()
+            .QueueTrainAsync(Arg.Any<QueueTrainInput>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task RequeueExecution_MissingId_ReturnsFalseWithoutQueuing()
     {
         var ops = Substitute.For<IOperationsService>();

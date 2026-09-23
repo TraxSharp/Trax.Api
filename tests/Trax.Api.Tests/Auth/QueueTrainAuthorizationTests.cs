@@ -19,9 +19,13 @@ using Trax.Scheduler.Services.TraxScheduler;
 namespace Trax.Api.Tests.Auth;
 
 /// <summary>
-/// Queueing a train through the operations surface applies that train's own authorization, on
-/// top of whatever gates the namespace. A caller who may not run the train gets the same
-/// authorization error as anywhere else in the API, and not the reason they were refused.
+/// How queueTrain reports a train authorization failure to a GraphQL caller: as
+/// <c>TRAX_AUTHORIZATION</c>, like the rest of the API, rather than as a failed result, and without
+/// the reason the caller was refused, which the exception carries for the server's logs.
+///
+/// <para>The operations service is substituted, so this pins the error's shape and not the
+/// decision to refuse. That the operations service authorizes against the real mediator is
+/// <c>OperationsServiceAuthorizationTests</c> in Trax.Scheduler.</para>
 /// </summary>
 [TestFixture]
 public class QueueTrainAuthorizationTests
@@ -39,7 +43,7 @@ public class QueueTrainAuthorizationTests
         """;
 
     [Test]
-    public async Task A_caller_who_may_not_run_the_train_gets_an_authorization_error()
+    public async Task An_authorization_failure_reaches_the_caller_as_TRAX_AUTHORIZATION_without_its_reason()
     {
         var operations = Substitute.For<IOperationsService>();
         operations
