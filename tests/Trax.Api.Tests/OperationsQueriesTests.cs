@@ -7,6 +7,7 @@ using Trax.Api.DTOs;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Queries;
 using Trax.Api.Tests.Fakes;
+using Trax.Core.Exceptions;
 using Trax.Effect.Data.Postgres.Extensions;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Enums;
@@ -345,6 +346,64 @@ public class OperationsQueriesTests
         result.Items.Should().OnlyContain(e => e.TrainState == TrainState.Failed);
         result.TotalCount.Should().Be(2);
         result.IsEstimatedCount.Should().BeFalse();
+    }
+
+    [Test]
+    public async Task GetExecutions_ReportsHowARunFailed_AndFiltersOnIt()
+    {
+        await using (var db = await _factory.CreateDbContextAsync(default))
+        {
+            foreach (var failureClass in new[] { FailureClass.Conflict, FailureClass.Transient })
+            {
+                var meta = Metadata.Create(
+                    new CreateMetadata
+                    {
+                        Name = "Trax.X.Classified",
+                        ExternalId = Guid.NewGuid().ToString("N"),
+                        Input = null,
+                    }
+                );
+                meta.TrainState = TrainState.Failed;
+                meta.AddException(
+                    new TrainException(
+                        System.Text.Json.JsonSerializer.Serialize(
+                            new TrainExceptionData
+                            {
+                                TrainName = "Classified",
+                                TrainExternalId = meta.ExternalId,
+                                Type = "SomeException",
+                                Junction = "SomeJunction",
+                                Message = "failed",
+                                FailureClass = failureClass,
+                            }
+                        )
+                    )
+                );
+                await db.Track(meta);
+            }
+            await db.SaveChanges(default);
+        }
+
+        var all = await new OperationsQueries().GetExecutions(_factory, default);
+        all.Items.Select(e => e.FailureClass)
+            .Should()
+            .BeEquivalentTo(
+                [FailureClass.Conflict, FailureClass.Transient],
+                "the stored class is what the dashboard and API consumers read"
+            );
+
+        var conflicts = await new OperationsQueries().GetExecutions(
+            _factory,
+            default,
+            failureClass: FailureClass.Conflict
+        );
+
+        conflicts
+            .Items.Should()
+            .ContainSingle()
+            .Which.FailureClass.Should()
+            .Be(FailureClass.Conflict);
+        conflicts.IsEstimatedCount.Should().BeFalse("a filtered page is counted exactly");
     }
 
     [Test]

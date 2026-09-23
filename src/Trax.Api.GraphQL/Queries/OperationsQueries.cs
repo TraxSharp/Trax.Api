@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Trax.Api.DTOs;
 using Trax.Api.Services.HealthCheck;
+using Trax.Core.Exceptions;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.EffectRegistry;
@@ -401,7 +402,8 @@ public class OperationsQueries
         long? afterId = null,
         long? manifestId = null,
         long? manifestGroupId = null,
-        bool hideAdminTrains = false
+        bool hideAdminTrains = false,
+        FailureClass? failureClass = null
     )
     {
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
@@ -410,6 +412,8 @@ public class OperationsQueries
 
         if (trainState.HasValue)
             filtered = filtered.Where(m => m.TrainState == trainState.Value);
+        if (failureClass.HasValue)
+            filtered = filtered.Where(m => m.FailureClass == failureClass.Value);
         if (!string.IsNullOrWhiteSpace(trainName))
             filtered = filtered.Where(m => m.Name == trainName);
         // metadata.Name stores the interface FullName (per CLAUDE.md), which is what
@@ -441,7 +445,8 @@ public class OperationsQueries
             || startedBefore.HasValue
             || manifestId.HasValue
             || manifestGroupId.HasValue
-            || hideAdminTrains;
+            || hideAdminTrains
+            || failureClass.HasValue;
 
         // Filters (or a cursor) force an exact count; the estimator only applies to the
         // unfiltered first page.
