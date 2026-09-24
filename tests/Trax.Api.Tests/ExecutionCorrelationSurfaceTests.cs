@@ -50,25 +50,44 @@ public class ExecutionCorrelationSurfaceTests
         FieldsOf(types, "ExecutionSummary").Should().Contain(["trainState", "failureReason"]);
     }
 
+    /// <summary>
+    /// The single-item lookups are keyed on the database id, and that key has the same type as
+    /// the <c>id</c> each summary returns, so an id read off one result can be spent on the other.
+    ///
+    /// <para>Known gap, deliberately not asserted here: no lookup takes an <c>externalId</c>, so a
+    /// caller that kept only the correlation id from its mutation response has nothing to spend
+    /// it on. This test pins what is decided and keeps passing when an <c>externalId</c> lookup is
+    /// added alongside.</para>
+    /// </summary>
     [Test]
-    public async Task NoExecutionLookup_IsKeyedOnExternalId()
+    public async Task SingleItemLookups_AreKeyedOnTheDatabaseIdTheSummariesReturn()
     {
         var types = await IntrospectAsync();
 
-        var byExternalId = new[] { "OperationsQueries", "WorkQueueQueries" }
-            .SelectMany(type =>
-                FieldsOf(types, type)
-                    .Where(field => ArgumentsOf(types, type, field).Contains("externalId"))
-                    .Select(field => $"{type}.{field}")
-            )
-            .ToList();
-
-        byExternalId
-            .Should()
-            .BeEmpty(
-                "the operations surface takes database ids only — a caller that kept just the "
-                    + "externalId from its mutation response has no query to spend it on"
-            );
+        foreach (
+            var (queries, field, summary) in new[]
+            {
+                ("OperationsQueries", "execution", "ExecutionSummary"),
+                ("WorkQueueQueries", "workQueue", "WorkQueueSummary"),
+            }
+        )
+        {
+            ArgumentTypeOf(types, queries, field, "id")
+                .Should()
+                .Be(
+                    "Long!",
+                    $"{queries}.{field} is keyed on the database id, a required 64-bit integer"
+                );
+            FieldTypeOf(types, summary, "id")
+                .Should()
+                .Be(
+                    "Long!",
+                    $"{summary}.id is the key {queries}.{field} takes, so it must have the same type"
+                );
+            FieldTypeOf(types, summary, "externalId")
+                .Should()
+                .Be("String!", $"{summary} carries the correlation id as a plain field");
+        }
     }
 
     [Test]
@@ -107,6 +126,38 @@ public class ExecutionCorrelationSurfaceTests
             .Select(a => a.GetProperty("name").GetString()!)
             .ToList();
 
+    private static string FieldTypeOf(JsonElement types, string typeName, string fieldName) =>
+        Render(Field(types, typeName, fieldName).GetProperty("type"));
+
+    private static string ArgumentTypeOf(
+        JsonElement types,
+        string typeName,
+        string fieldName,
+        string argumentName
+    ) =>
+        Render(
+            Field(types, typeName, fieldName)
+                .GetProperty("args")
+                .EnumerateArray()
+                .Single(a => a.GetProperty("name").GetString() == argumentName)
+                .GetProperty("type")
+        );
+
+    private static JsonElement Field(JsonElement types, string typeName, string fieldName) =>
+        Type(types, typeName)
+            .GetProperty("fields")
+            .EnumerateArray()
+            .Single(f => f.GetProperty("name").GetString() == fieldName);
+
+    /// <summary>Renders an introspected type reference in SDL form, e.g. <c>Long!</c>.</summary>
+    private static string Render(JsonElement type) =>
+        type.GetProperty("kind").GetString() switch
+        {
+            "NON_NULL" => Render(type.GetProperty("ofType")) + "!",
+            "LIST" => "[" + Render(type.GetProperty("ofType")) + "]",
+            _ => type.GetProperty("name").GetString()!,
+        };
+
     private static JsonElement Type(JsonElement types, string typeName)
     {
         var type = types.GetProperty(typeName);
@@ -141,13 +192,16 @@ public class ExecutionCorrelationSurfaceTests
             .GetRequiredService<IRequestExecutorProvider>()
             .GetExecutorAsync("trax");
 
+        const string TypeRef =
+            "type { kind name ofType { kind name ofType { kind name ofType { kind name } } } }";
+
         var result = await executor.ExecuteAsync(
-            """
+            $$"""
             {
-              OperationsQueries: __type(name: "OperationsQueries") { fields { name args { name } } }
-              WorkQueueQueries: __type(name: "WorkQueueQueries") { fields { name args { name } } }
-              WorkQueueSummary: __type(name: "WorkQueueSummary") { fields { name args { name } } }
-              ExecutionSummary: __type(name: "ExecutionSummary") { fields { name args { name } } }
+              OperationsQueries: __type(name: "OperationsQueries") { fields { name {{TypeRef}} args { name {{TypeRef}} } } }
+              WorkQueueQueries: __type(name: "WorkQueueQueries") { fields { name {{TypeRef}} args { name {{TypeRef}} } } }
+              WorkQueueSummary: __type(name: "WorkQueueSummary") { fields { name {{TypeRef}} args { name {{TypeRef}} } } }
+              ExecutionSummary: __type(name: "ExecutionSummary") { fields { name {{TypeRef}} args { name {{TypeRef}} } } }
             }
             """
         );
