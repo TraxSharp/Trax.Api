@@ -111,6 +111,7 @@ public static class ApiKeyAuthServiceCollectionExtensions
                     policy
                         .AddAuthenticationSchemes(ApiKeyDefaults.SchemeName)
                         .RequireAuthenticatedUser()
+                        .AddRequirements(new TraxSchemeRequirement(ApiKeyDefaults.SchemeName))
             );
 
         services.PostConfigure<AuthorizationOptions>(opts =>

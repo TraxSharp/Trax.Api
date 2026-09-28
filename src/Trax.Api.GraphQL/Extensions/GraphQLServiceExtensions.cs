@@ -251,14 +251,19 @@ public static class GraphQLServiceExtensions
             services.AddAuthorization();
 
             graphqlBuilder.AddAuthorization();
-            // HotChocolate 16 activates interceptors out of the schema container, which no longer
-            // forwards to the application container. Bridge the ASP.NET Core services the
-            // interceptor needs across the boundary.
-            graphqlBuilder.BridgeApplicationService<IAuthenticationSchemeProvider>();
-            graphqlBuilder.AddHttpRequestInterceptor<QueryModelAuthenticationInterceptor>();
         }
 
         ApplyHardeningDefaults(services, graphqlBuilder, config);
+
+        // One HTTP interceptor establishes the caller for both @authorize and the endpoint policy.
+        // HotChocolate keeps a single IHttpRequestInterceptor, so two would replace each other.
+        // It resolves the ASP.NET Core services it needs from the request, and only its
+        // configuration from the schema container.
+        if (authorizationInSchema || config.AuthorizationRequired)
+        {
+            graphqlBuilder.BridgeApplicationService<GraphQLConfiguration>();
+            graphqlBuilder.AddHttpRequestInterceptor<TraxHttpAuthenticationInterceptor>();
+        }
 
         if (config.ModelRegistrations.Count > 0)
         {
@@ -555,9 +560,7 @@ public static class GraphQLServiceExtensions
         // requests, so the BCP tool page and schema introspection stay reachable.
         if (config.AuthorizationRequired)
         {
-            graphqlBuilder.BridgeApplicationService<IAuthorizationService>();
-            graphqlBuilder.BridgeApplicationService<GraphQLConfiguration>();
-            graphqlBuilder.AddHttpRequestInterceptor<TraxGraphQLAuthInterceptor>();
+            services.AddAuthorization();
             services.AddHostedService<TraxGraphQLAuthPolicyValidator>();
 
             // The same policy for every operation on every transport. HotChocolate's request
