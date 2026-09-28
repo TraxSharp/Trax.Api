@@ -283,7 +283,6 @@ public sealed class TraxCompositeSocketInterceptor : DefaultSocketSessionInterce
             // Every scheme AddTraxJwtAuth registered, named or default, authenticates the socket.
             jwt = new TraxJwtSchemesSocketInterceptor(
                 registry,
-                services.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>(),
                 _applicationServices,
                 loggerFactory.CreateLogger<TraxJwtSchemesSocketInterceptor>()
             );
