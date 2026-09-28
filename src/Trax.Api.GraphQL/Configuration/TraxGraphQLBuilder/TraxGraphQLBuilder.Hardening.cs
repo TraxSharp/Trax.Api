@@ -75,7 +75,9 @@ public partial class TraxGraphQLBuilder
 
     /// <summary>
     /// Caps the number of top-level selections in a single GraphQL request
-    /// (aliased fields + batched operations both count). Default is <c>50</c>.
+    /// (aliased fields + batched operations both count, and selections inside
+    /// fragment spreads or inline fragments count as if written in place).
+    /// Default is <c>50</c>.
     /// Rejects amplification attacks that submit hundreds of aliased train
     /// invocations in a single HTTP request.
     /// </summary>
