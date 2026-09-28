@@ -2,6 +2,7 @@ using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Subscriptions;
 using HotChocolate.AspNetCore.Subscriptions.Protocols;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10,6 +11,8 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Trax.Api.Auth;
 using Trax.Api.Auth.Jwt;
+using Trax.Api.GraphQL.Authorization;
+using Trax.Api.GraphQL.Configuration;
 using Trax.Api.GraphQL.Extensions;
 
 namespace Trax.Api.GraphQL.Subscriptions;
@@ -68,10 +71,32 @@ public sealed class TraxCompositeSocketInterceptor : DefaultSocketSessionInterce
     }
 
     /// <inheritdoc />
-    public override ValueTask<ConnectionStatus> OnConnectAsync(
+    /// <remarks>
+    /// After the credential is accepted, the endpoint policy set with
+    /// <c>RequireAuthorization(...)</c> on the GraphQL builder, when there is one, is evaluated
+    /// against the connection's principal. An anonymous connection does not satisfy it.
+    /// </remarks>
+    public override async ValueTask<ConnectionStatus> OnConnectAsync(
         ISocketSession session,
         IOperationMessagePayload connectionInitMessage,
         CancellationToken cancellationToken = default
+    )
+    {
+        var status = await AuthenticateAsync(session, connectionInitMessage, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!status.Accepted)
+            return status;
+
+        return await SatisfiesEndpointPolicyAsync(session).ConfigureAwait(false)
+            ? status
+            : ConnectionStatus.Reject("Not authorized.");
+    }
+
+    private ValueTask<ConnectionStatus> AuthenticateAsync(
+        ISocketSession session,
+        IOperationMessagePayload connectionInitMessage,
+        CancellationToken cancellationToken
     )
     {
         var strategies = _strategies.Value;
@@ -86,6 +111,27 @@ public sealed class TraxCompositeSocketInterceptor : DefaultSocketSessionInterce
             );
 
         return target.OnConnectAsync(session, connectionInitMessage, cancellationToken);
+    }
+
+    /// <summary>
+    /// True when no endpoint policy is set, or the connection's principal satisfies it. Checking
+    /// at the handshake refuses a connection that could run nothing; every operation it carries is
+    /// checked again in the request pipeline.
+    /// </summary>
+    private async ValueTask<bool> SatisfiesEndpointPolicyAsync(ISocketSession session)
+    {
+        var services = _applicationServices.Services;
+        var configuration = services.GetService<GraphQLConfiguration>();
+        if (configuration?.AuthorizationRequired != true)
+            return true;
+
+        return await EndpointPolicy
+            .IsSatisfiedAsync(
+                services.GetRequiredService<IAuthorizationService>(),
+                configuration,
+                session.Connection.HttpContext?.User
+            )
+            .ConfigureAwait(false);
     }
 
     private static DefaultSocketSessionInterceptor? SelectStrategy(
@@ -158,7 +204,16 @@ public sealed class TraxCompositeSocketInterceptor : DefaultSocketSessionInterce
                 _applicationServices,
                 loggerFactory.CreateLogger<TraxJwtDispatcherSocketInterceptor>()
             );
+        else if (services.GetService<JwtResolverRegistry>() is { SchemeNames.Count: > 0 } registry)
+            // Every scheme AddTraxJwtAuth registered, named or default, authenticates the socket.
+            jwt = new TraxJwtSchemesSocketInterceptor(
+                registry,
+                services.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>(),
+                _applicationServices,
+                loggerFactory.CreateLogger<TraxJwtSchemesSocketInterceptor>()
+            );
         else if (isService.IsService(typeof(ITraxPrincipalResolver<JwtTokenInput>)))
+            // A host that registered its own JWT resolver without AddTraxJwtAuth.
             jwt = new TraxJwtSocketInterceptor(
                 services.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>(),
                 _applicationServices,

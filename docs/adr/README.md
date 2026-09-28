@@ -38,9 +38,9 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 
 | Area | ADRs |
 | --- | --- |
-| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md) |
+| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md), [0009](./0009-the-endpoint-policy-applies-to-every-transport.md) |
 | `platform` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md) |
-| `auth` | [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md) |
+| `auth` | [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md), [0009](./0009-the-endpoint-policy-applies-to-every-transport.md) |
 
 ## All of them
 
@@ -52,3 +52,4 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 | [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md) | The operations namespace gates independently of the endpoint | graphql, auth |
 | [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md) | One socket interceptor composes every token scheme | graphql, auth |
 | [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md) | A token scheme requires a credential on every socket | graphql, auth |
+| [0009](./0009-the-endpoint-policy-applies-to-every-transport.md) | The endpoint policy applies to every transport | graphql, auth |

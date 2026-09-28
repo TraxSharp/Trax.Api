@@ -48,7 +48,10 @@ internal sealed class TraxSubscriptionAuthWiringValidator(
 
         if (isService.IsService(typeof(JwtDispatcherRuntime)))
             registered.Add("AddTraxJwtDispatcher()");
-        else if (isService.IsService(typeof(ITraxPrincipalResolver<JwtTokenInput>)))
+        else if (
+            isService.IsService(typeof(ITraxPrincipalResolver<JwtTokenInput>))
+            || isService.IsService(typeof(JwtResolverRegistry))
+        )
             registered.Add("AddTraxJwtAuth(...)");
 
         if (isService.IsService(typeof(ITraxPrincipalResolver<string>)))
