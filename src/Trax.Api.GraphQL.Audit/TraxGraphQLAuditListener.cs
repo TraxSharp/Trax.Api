@@ -1,5 +1,6 @@
 using HotChocolate.Execution;
 using HotChocolate.Execution.Instrumentation;
+using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -120,9 +121,7 @@ public sealed class TraxGraphQLAuditListener(
                 return;
 
             var elapsed = timeProvider.GetElapsedTime(startTicks);
-            var document = TruncateDocument(
-                context.OperationDocumentInfo.Document?.ToString() ?? string.Empty
-            );
+            var document = CaptureDocument(context);
             var variables = BuildVariables(context);
             var redactedVariables = SafeRedact(variables);
             var (success, errorText) = InterpretResult(context);
@@ -148,12 +147,62 @@ public sealed class TraxGraphQLAuditListener(
         }
     }
 
-    private string TruncateDocument(string document)
+    /// <summary>
+    /// Returns the document as sent, or, past <see cref="TraxAuditOptions.MaxDocumentLength"/>,
+    /// its head followed by every field the compiled operation executes. The head alone can be
+    /// filled by padding placed ahead of the fields that matter; the field list cannot, because
+    /// it is read from the compiled operation after fragment expansion and holds each schema
+    /// coordinate once, so its size is bounded by the schema rather than by the request.
+    /// </summary>
+    private string CaptureDocument(RequestContext context)
     {
+        var document = context.OperationDocumentInfo.Document?.ToString() ?? string.Empty;
         if (document.Length <= _options.MaxDocumentLength)
             return document;
 
-        return string.Concat(document.AsSpan(0, _options.MaxDocumentLength), "...[truncated]");
+        var head = string.Concat(document.AsSpan(0, _options.MaxDocumentLength), TruncatedMarker);
+        if (!context.TryGetOperation(out var operation))
+            return head;
+
+        return string.Concat(
+            head,
+            ExecutedFieldsMarker,
+            string.Join(", ", ExecutedFieldCoordinates(operation)),
+            "]"
+        );
+    }
+
+    private const string TruncatedMarker = "...[truncated]";
+    private const string ExecutedFieldsMarker = " [selected fields: ";
+
+    /// <summary>
+    /// Every <c>Type.field</c> the operation selects, across all of its possible types, in
+    /// ordinal order. Walks each selection set once.
+    /// </summary>
+    private static SortedSet<string> ExecutedFieldCoordinates(Operation operation)
+    {
+        var coordinates = new SortedSet<string>(StringComparer.Ordinal);
+        var visited = new HashSet<int>();
+        var pending = new Stack<SelectionSet>();
+        pending.Push(operation.RootSelectionSet);
+
+        while (pending.Count > 0)
+        {
+            var selectionSet = pending.Pop();
+            if (!visited.Add(selectionSet.Id))
+                continue;
+
+            foreach (var selection in selectionSet.Selections)
+            {
+                coordinates.Add($"{selection.DeclaringType.Name}.{selection.Field.Name}");
+                if (selection.IsLeaf)
+                    continue;
+                foreach (var possibleType in operation.GetPossibleTypes(selection))
+                    pending.Push(operation.GetSelectionSet(selection, possibleType));
+            }
+        }
+
+        return coordinates;
     }
 
     private static IReadOnlyDictionary<string, object?>? BuildVariables(RequestContext context)
