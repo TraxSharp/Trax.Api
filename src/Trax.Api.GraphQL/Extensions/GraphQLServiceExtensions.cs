@@ -525,72 +525,29 @@ public static class GraphQLServiceExtensions
             }
         );
 
-        // Recorded so TraxSubscriptionAuthWiringValidator can tell, once the container is
-        // complete, whether a scheme was registered too late to be seen here.
-        var wiredSocketInterceptors = new List<string>();
-
-        // G5 — Subscription auth interceptors. Browsers cannot attach headers to
-        // WebSocket upgrades, so each auth scheme registers an interceptor that
-        // reads the credential from the connection_init payload. Wired only when
-        // the corresponding principal resolver is present in DI.
+        // G5 — Subscription auth. Browsers cannot attach headers to WebSocket upgrades, so the
+        // API-key and JWT schemes read their credential from the connection_init payload.
+        // HotChocolate runs one socket interceptor per schema, so one composite serves every
+        // token scheme, and it is registered for every host: which schemes are active is read
+        // from the completed container on the first connection, never from this collection, so
+        // registration order cannot change it. See
+        // docs/adr/0006-one-socket-interceptor-composes-every-token-scheme.md.
         //
-        // Cookie-based auth (Trax.Api.Auth.Oidc) needs no interceptor here: the
-        // browser attaches cookies to the upgrade request and the cookie scheme
-        // authenticates on the upgrade like any HTTP request.
-        if (
-            services.Any(sd =>
-                sd.ServiceType == typeof(Trax.Api.Auth.ITraxPrincipalResolver<string>)
-            )
-        )
-        {
-            // The resolver is scoped and cannot be bridged as a singleton; the interceptor
-            // takes the application container and opens a scope per connection instead.
-            services.TryAddSingleton(sp => new TraxApplicationServices(sp));
-            graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
-            graphqlBuilder.BridgeApplicationService<ILogger<TraxApiKeySocketInterceptor>>();
-            graphqlBuilder.AddSocketSessionInterceptor<TraxApiKeySocketInterceptor>();
-            wiredSocketInterceptors.Add(nameof(TraxApiKeySocketInterceptor));
-        }
+        // Cookie-based auth (Trax.Api.Auth.Oidc) needs nothing here: the browser attaches
+        // cookies to the upgrade request and the cookie scheme authenticates it like any HTTP
+        // request. With no token scheme registered the composite accepts every connection.
+        services.TryAddSingleton(sp => new TraxApplicationServices(sp));
+        graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
+        graphqlBuilder.AddSocketSessionInterceptor(sp => new TraxCompositeSocketInterceptor(
+            sp.GetRequiredService<TraxApplicationServices>()
+        ));
 
-        // A multi-scheme JWT dispatcher routes subscription auth by the token's
-        // issuer across every mapped scheme (JWKS included), so it supersedes the
-        // single-scheme stock JWT interceptor. Otherwise wire the stock one when a
-        // JWT resolver is present.
-        if (services.Any(sd => sd.ServiceType == typeof(Trax.Api.Auth.Jwt.JwtDispatcherRuntime)))
-        {
-            graphqlBuilder.BridgeApplicationService<Trax.Api.Auth.Jwt.JwtDispatcherRuntime>();
-            graphqlBuilder.BridgeApplicationService<IOptionsMonitor<JwtBearerOptions>>();
-            // The dispatcher resolves scoped principal resolvers by scheme name, so it
-            // needs the application container itself rather than one bridged service.
-            services.TryAddSingleton(sp => new TraxApplicationServices(sp));
-            graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
-            graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtDispatcherSocketInterceptor>>();
-            graphqlBuilder.AddSocketSessionInterceptor<TraxJwtDispatcherSocketInterceptor>();
-            wiredSocketInterceptors.Add(nameof(TraxJwtDispatcherSocketInterceptor));
-        }
-        else if (
-            services.Any(sd =>
-                sd.ServiceType
-                == typeof(Trax.Api.Auth.ITraxPrincipalResolver<Trax.Api.Auth.Jwt.JwtTokenInput>)
-            )
-        )
-        {
-            graphqlBuilder.BridgeApplicationService<IOptionsMonitor<JwtBearerOptions>>();
-            services.TryAddSingleton(sp => new TraxApplicationServices(sp));
-            graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
-            graphqlBuilder.BridgeApplicationService<ILogger<TraxJwtSocketInterceptor>>();
-            graphqlBuilder.AddSocketSessionInterceptor<TraxJwtSocketInterceptor>();
-            wiredSocketInterceptors.Add(nameof(TraxJwtSocketInterceptor));
-        }
-
-        // Registration order decides which interceptor above was wired, so assert at startup
-        // that every registered scheme actually got one instead of letting subscriptions fall
-        // through to HotChocolate's accept-everything default.
+        // A backstop, not an ordering check: it fails the host if a token scheme is registered
+        // and HotChocolate's accept-everything default is what would answer connection_init.
         services.AddHostedService(sp => new TraxSubscriptionAuthWiringValidator(
             sp.GetRequiredService<IServiceProviderIsService>(),
             sp.GetRequiredService<IRequestExecutorProvider>(),
-            SchemaName,
-            wiredSocketInterceptors
+            SchemaName
         ));
 
         // G7 — HTTP execution authorization. Wired when the builder opted in via

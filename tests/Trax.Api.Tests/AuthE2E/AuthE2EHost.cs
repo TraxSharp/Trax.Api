@@ -139,6 +139,11 @@ public static class AuthE2EHost
                             );
                         }
 
+                        // The pipeline below runs UseAuthentication, which needs the
+                        // services even when no scheme is registered.
+                        if (schemes == Schemes.None)
+                            services.AddAuthentication();
+
                         // [TraxAuthorize(Policy="AdminPolicy")] requires a
                         // matching ASP.NET Core policy definition.
                         services.AddAuthorization(opts =>

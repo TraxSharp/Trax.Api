@@ -28,10 +28,11 @@ namespace Trax.Api.GraphQL.Subscriptions;
 /// that prefer naming it after the HTTP header):
 /// <code>{ "authToken": "eyJ..." }</code> or <code>{ "bearer": "eyJ..." }</code>.
 /// <para>
-/// Registered automatically by <c>AddTraxGraphQL</c> when
-/// <c>ITraxPrincipalResolver&lt;JwtTokenInput&gt;</c> is present. Hosts that
-/// prefer their own subscription-auth pipeline can remove the registration
-/// and wire a custom <see cref="ISocketSessionInterceptor"/>.
+/// <see cref="TraxCompositeSocketInterceptor"/> delegates JWT connections here when
+/// <c>ITraxPrincipalResolver&lt;JwtTokenInput&gt;</c> is registered and no
+/// dispatcher is. Hosts that prefer their own subscription-auth pipeline
+/// register a custom <see cref="ISocketSessionInterceptor"/> through
+/// <c>ConfigureSchema</c>, which replaces the composite.
 /// </para>
 /// Token validation reuses the same <see cref="JwtBearerOptions"/> the HTTP
 /// handler uses (signature, issuer, audience, lifetime, clock skew), so the
