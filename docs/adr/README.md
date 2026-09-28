@@ -38,7 +38,7 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 
 | Area | ADRs |
 | --- | --- |
-| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md) |
+| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0014](./0014-only-a-train-exceptions-own-message-reaches-the-client.md) |
 | `platform` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md) |
 | `auth` | [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md) |
 
@@ -50,3 +50,4 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 | [0002](./0002-reading-the-service-collection-is-order-dependent.md) | Reading the service collection during registration is order-dependent | graphql, platform |
 | [0003](./0003-a-type-extension-field-declares-its-own-posture.md) | A type-extension field on an anonymous parent declares its own posture | graphql, auth |
 | [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md) | The operations namespace gates independently of the endpoint | graphql, auth |
+| [0014](./0014-only-a-train-exceptions-own-message-reaches-the-client.md) | Only a TrainException's own message reaches the client | graphql |
