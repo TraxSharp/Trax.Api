@@ -21,6 +21,9 @@ public class WorkQueueQueries
         long? afterId = null
     )
     {
+        take = OperationsPageBounds.Take(take);
+        skip = OperationsPageBounds.Skip(skip);
+
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
 
         IQueryable<Effect.Models.WorkQueue.WorkQueue> baseQuery = db

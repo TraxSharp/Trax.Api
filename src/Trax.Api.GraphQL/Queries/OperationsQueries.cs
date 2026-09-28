@@ -160,6 +160,9 @@ public class OperationsQueries
         long? manifestGroupId = null
     )
     {
+        take = OperationsPageBounds.Take(take);
+        skip = OperationsPageBounds.Skip(skip);
+
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
 
         IQueryable<Effect.Models.Manifest.Manifest> baseQuery = db
@@ -406,6 +409,9 @@ public class OperationsQueries
         FailureClass? failureClass = null
     )
     {
+        take = OperationsPageBounds.Take(take);
+        skip = OperationsPageBounds.Skip(skip);
+
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
 
         IQueryable<Effect.Models.Metadata.Metadata> filtered = db.Metadatas.AsNoTracking();
@@ -594,6 +600,8 @@ public class OperationsQueries
         long? afterId = null
     )
     {
+        take = OperationsPageBounds.Take(take);
+
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
 
         var baseQuery = db.Metadatas.AsNoTracking().Where(m => m.ParentId == parentId);
