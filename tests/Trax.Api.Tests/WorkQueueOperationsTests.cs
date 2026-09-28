@@ -35,8 +35,8 @@ public class WorkQueueOperationsTests
     // class of CI flake. Dropping Connection Pruning Interval=1 + Idle Lifetime=1
     // lets the pool reuse connections across tests instead of paying TCP+auth
     // every SetUp, which is what was timing out under CI Postgres contention.
-    private const string ConnectionString =
-        "Host=localhost;Port=5432;Database=trax_api_workqueue;Username=trax;Password=trax123;"
+    private static readonly string ConnectionString =
+        $"Host=localhost;Port={TestPostgres.Port};Database=trax_api_workqueue;Username=trax;Password=trax123;"
         + "Maximum Pool Size=8;Minimum Pool Size=0;Connection Idle Lifetime=30;"
         + "Timeout=30;Tcp Keepalive=true";
 

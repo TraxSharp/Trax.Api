@@ -47,7 +47,7 @@ public static class AuthE2EHost
     //   - Pool Size=8 — small enough that 5 fixtures × 8 = 40 connections
     //     stays well under postgres's default max_connections=100.
     public static string ConnectionString(string database) =>
-        $"Host=localhost;Port=5432;Database={database};Username=trax;Password=trax123;"
+        $"Host=localhost;Port={TestPostgres.Port};Database={database};Username=trax;Password=trax123;"
         + "Maximum Pool Size=8;Minimum Pool Size=0;Connection Idle Lifetime=30;"
         + "Timeout=30;Tcp Keepalive=true";
 
@@ -66,8 +66,8 @@ public static class AuthE2EHost
     /// </remarks>
     public static void EnsureDatabaseExists(string database)
     {
-        const string maintenanceConnectionString =
-            "Host=localhost;Port=5432;Database=trax;Username=trax;Password=trax123;Timeout=30";
+        var maintenanceConnectionString =
+            $"Host=localhost;Port={TestPostgres.Port};Database=trax;Username=trax;Password=trax123;Timeout=30";
 
         using var connection = new Npgsql.NpgsqlConnection(maintenanceConnectionString);
         connection.Open();

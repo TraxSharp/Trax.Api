@@ -73,7 +73,7 @@ public abstract class StressTestSetup
     /// </summary>
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("TRAX_STRESS_CONNECTION")
-        ?? "Host=localhost;Port=5432;Database=trax_api_stress;Username=trax;Password=trax123;"
+        ?? $"Host=localhost;Port={TestPostgres.Port};Database=trax_api_stress;Username=trax;Password=trax123;"
             + "Maximum Pool Size=16;Timeout=30;Command Timeout=1200;Include Error Detail=true";
 
     [OneTimeSetUp]
