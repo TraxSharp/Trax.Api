@@ -23,6 +23,8 @@ public partial class TraxGraphQLBuilder
 
     internal string? AuthorizationPolicy { get; private set; }
 
+    internal bool GetRequestsAllowed { get; private set; }
+
     /// <summary>
     /// Sets the maximum GraphQL query depth. The default is <c>15</c>.
     /// Tighten this when running a public-facing schema where you want to
@@ -115,6 +117,30 @@ public partial class TraxGraphQLBuilder
     {
         AuthorizationRequired = true;
         AuthorizationPolicy = policy;
+        return this;
+    }
+
+    /// <summary>
+    /// Serves GraphQL queries over HTTP GET. GET is off by default: the endpoint executes only
+    /// POSTed operations (and subscriptions over the socket).
+    /// </summary>
+    /// <remarks>
+    /// A browser attaches a <c>SameSite=Lax</c> cookie to a cross-site top-level navigation, so
+    /// with GET on, a link on another site could run a <c>[TraxQuery]</c> train as the signed-in
+    /// user. The response is not readable cross-site, but the train still runs. Opting in keeps
+    /// two guards: a GET must carry the <c>GraphQL-preflight</c> header, which a navigation cannot
+    /// add, and only queries run over GET (a mutation is refused). Opt in only for a client that
+    /// needs GET, such as a CDN caching persisted queries by id, and send the header from it.
+    /// <para>
+    /// The setting belongs to the <c>trax</c> schema, so it holds whether the endpoint is mapped
+    /// with <c>UseTraxGraphQL</c> or directly with <c>MapGraphQL(path, "trax")</c>. The IDE page
+    /// and the SDL download are separate HotChocolate options and are not affected.
+    /// See <c>docs/adr/0024-graphql-get-is-off-unless-the-host-opts-in.md</c>.
+    /// </para>
+    /// </remarks>
+    public TraxGraphQLBuilder AllowGetRequests()
+    {
+        GetRequestsAllowed = true;
         return this;
     }
 }

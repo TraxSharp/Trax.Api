@@ -107,6 +107,13 @@ public class GraphQLConfiguration
     /// </summary>
     internal IReadOnlyList<ITraxFilterModule> FilterModules { get; }
 
+    /// <summary>
+    /// Whether GraphQL queries are served over HTTP GET, set by
+    /// <c>TraxGraphQLBuilder.AllowGetRequests()</c>. Off by default. See
+    /// <c>docs/adr/0024-graphql-get-is-off-unless-the-host-opts-in.md</c>.
+    /// </summary>
+    internal bool GetRequestsAllowed { get; init; }
+
     public GraphQLConfiguration(
         IReadOnlyList<QueryModelRegistration> modelRegistrations,
         IReadOnlyList<Type> additionalTypeModules,
