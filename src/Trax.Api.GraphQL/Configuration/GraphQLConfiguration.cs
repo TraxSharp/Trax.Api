@@ -107,6 +107,12 @@ public class GraphQLConfiguration
     /// </summary>
     internal IReadOnlyList<ITraxFilterModule> FilterModules { get; }
 
+    /// <summary>
+    /// Origins set through <c>TraxGraphQLBuilder.AllowSocketOrigins()</c>, normalized, or
+    /// <c>null</c> when the host's CORS default policy decides which origins may open a socket.
+    /// </summary>
+    internal IReadOnlyList<string>? SocketAllowedOrigins { get; init; }
+
     public GraphQLConfiguration(
         IReadOnlyList<QueryModelRegistration> modelRegistrations,
         IReadOnlyList<Type> additionalTypeModules,

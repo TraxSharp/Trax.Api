@@ -85,7 +85,10 @@ public partial class TraxGraphQLBuilder
             OperationMutationsExposed,
             FilterModules,
             OperationsAuthorizeAttributes
-        );
+        )
+        {
+            SocketAllowedOrigins = SocketAllowedOrigins,
+        };
     }
 
     /// <summary>
