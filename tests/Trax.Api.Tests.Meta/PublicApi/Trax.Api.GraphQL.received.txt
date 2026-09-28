@@ -4,6 +4,7 @@ namespace Trax.Api.GraphQL.Configuration
     {
         public GraphQLConfiguration(System.Collections.Generic.IReadOnlyList<Trax.Api.GraphQL.Configuration.QueryModelRegistration> modelRegistrations, System.Collections.Generic.IReadOnlyList<System.Type> additionalTypeModules, System.Collections.Generic.IReadOnlyList<System.Action<HotChocolate.Execution.Configuration.IRequestExecutorBuilder>> schemaConfigurations, System.Collections.Generic.IReadOnlyList<System.Type> additionalTypeExtensions, int maxExecutionDepth = 15, System.Action<HotChocolate.CostAnalysis.CostOptions>? costOverride = null, System.Predicate<Microsoft.AspNetCore.Http.HttpContext>? introspectionPredicate = null, int maxOperationsPerRequest = 50, bool authorizationRequired = false, string? authorizationPolicy = null, bool operationQueriesExposed = false, bool operationMutationsExposed = false, System.Collections.Generic.IReadOnlyList<Trax.Api.GraphQL.Filtering.ITraxFilterModule>? filterModules = null, System.Collections.Generic.IReadOnlyList<Trax.Effect.Attributes.TraxAuthorizeAttribute>? operationsAuthorizeAttributes = null) { }
         public int MaxExecutionDepth { get; }
+        public int MaxOperationsPerConnection { get; }
         public int MaxOperationsPerRequest { get; }
         public System.Collections.Generic.IReadOnlyList<Trax.Api.GraphQL.Configuration.QueryModelRegistration> ModelRegistrations { get; }
         public bool OperationMutationsExposed { get; }
@@ -56,6 +57,7 @@ namespace Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder ExposeOperationQueries() { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder GateOperations(string? policy = null, string? roles = null) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder MaxExecutionDepth(int depth) { }
+        public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder MaxOperationsPerConnection(int maxOperations) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder MaxOperationsPerRequest(int maxOperations) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder RequireAuthorization(string? policy = null) { }
     }
@@ -302,7 +304,9 @@ namespace Trax.Api.GraphQL.Subscriptions
     public sealed class TraxCompositeSocketInterceptor : HotChocolate.AspNetCore.DefaultSocketSessionInterceptor
     {
         public TraxCompositeSocketInterceptor(Trax.Api.GraphQL.Extensions.TraxApplicationServices applicationServices) { }
+        public override System.Threading.Tasks.ValueTask OnCompleteAsync(HotChocolate.AspNetCore.Subscriptions.ISocketSession session, string operationSessionId, System.Threading.CancellationToken cancellationToken = default) { }
         public override System.Threading.Tasks.ValueTask<HotChocolate.AspNetCore.Subscriptions.Protocols.ConnectionStatus> OnConnectAsync(HotChocolate.AspNetCore.Subscriptions.ISocketSession session, HotChocolate.AspNetCore.Subscriptions.Protocols.IOperationMessagePayload connectionInitMessage, System.Threading.CancellationToken cancellationToken = default) { }
+        public override System.Threading.Tasks.ValueTask OnRequestAsync(HotChocolate.AspNetCore.Subscriptions.ISocketSession session, string operationSessionId, HotChocolate.Execution.OperationRequestBuilder requestBuilder, System.Threading.CancellationToken cancellationToken = default) { }
     }
     public sealed class TraxJwtDispatcherSocketInterceptor : HotChocolate.AspNetCore.DefaultSocketSessionInterceptor
     {

@@ -1,6 +1,8 @@
+using System.Runtime.CompilerServices;
 using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Subscriptions;
 using HotChocolate.AspNetCore.Subscriptions.Protocols;
+using HotChocolate.Execution;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,23 +49,50 @@ namespace Trax.Api.GraphQL.Subscriptions;
 /// (which authenticates the WebSocket upgrade itself), is unaffected.
 /// </para>
 /// <para>
+/// <b>Operations per connection.</b> A connection runs at most
+/// <c>MaxOperationsPerConnection</c> operations at once (100 unless the GraphQL builder sets
+/// another). An operation started past the limit is marked, and
+/// <see cref="SocketOperationLimitRequestMiddleware"/> answers it with a
+/// <c>TRAX_SOCKET_OPERATION_LIMIT</c> error; it takes no place. A place frees when an operation
+/// completes. See <c>docs/adr/0015-a-socket-runs-a-bounded-number-of-operations.md</c>.
+/// </para>
+/// <para>
 /// A host that supplies its own interceptor through
 /// <c>ConfigureSchema(b =&gt; b.AddSocketSessionInterceptor&lt;T&gt;())</c> replaces this one.
 /// </para>
 /// </remarks>
 public sealed class TraxCompositeSocketInterceptor : DefaultSocketSessionInterceptor
 {
+    /// <summary>The operations a connection runs at once when the builder sets no limit.</summary>
+    internal const int DefaultMaxOperationsPerConnection = 100;
+
     private readonly TraxApplicationServices _applicationServices;
     private readonly Lazy<Strategies> _strategies;
+    private readonly int _maxOperationsPerConnection;
+
+    // The ids of the operations each connection is running. Keyed weakly, so a closed
+    // connection's entry goes with it.
+    private readonly ConditionalWeakTable<ISocketSession, HashSet<string>> _running = new();
 
     /// <summary>
     /// Creates the interceptor over the application container, which it reads for the registered
-    /// schemes on first use.
+    /// schemes on first use. A connection runs at most 100 operations at once.
     /// </summary>
     public TraxCompositeSocketInterceptor(TraxApplicationServices applicationServices)
+        : this(applicationServices, DefaultMaxOperationsPerConnection) { }
+
+    /// <summary>
+    /// Creates the interceptor with the operations limit the GraphQL builder set.
+    /// </summary>
+    internal TraxCompositeSocketInterceptor(
+        TraxApplicationServices applicationServices,
+        int maxOperationsPerConnection
+    )
     {
         ArgumentNullException.ThrowIfNull(applicationServices);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxOperationsPerConnection);
         _applicationServices = applicationServices;
+        _maxOperationsPerConnection = maxOperationsPerConnection;
         _strategies = new Lazy<Strategies>(
             DiscoverStrategies,
             LazyThreadSafetyMode.ExecutionAndPublication
@@ -91,6 +120,52 @@ public sealed class TraxCompositeSocketInterceptor : DefaultSocketSessionInterce
         return await SatisfiesEndpointPolicyAsync(session).ConfigureAwait(false)
             ? status
             : ConnectionStatus.Reject("Not authorized.");
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Admits the operation when the connection runs fewer than the limit, and otherwise marks the
+    /// request so the pipeline refuses it. HotChocolate masks an exception thrown here, so the
+    /// refusal is raised in the pipeline, where it reaches the client as a coded error.
+    /// </remarks>
+    public override ValueTask OnRequestAsync(
+        ISocketSession session,
+        string operationSessionId,
+        OperationRequestBuilder requestBuilder,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (!TryAdmit(session, operationSessionId))
+            requestBuilder.SetGlobalState(SocketOperationLimitRequestMiddleware.ExceededKey, true);
+
+        return base.OnRequestAsync(session, operationSessionId, requestBuilder, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Frees the place the operation held.</remarks>
+    public override ValueTask OnCompleteAsync(
+        ISocketSession session,
+        string operationSessionId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (_running.TryGetValue(session, out var running))
+            lock (running)
+                running.Remove(operationSessionId);
+
+        return base.OnCompleteAsync(session, operationSessionId, cancellationToken);
+    }
+
+    private bool TryAdmit(ISocketSession session, string operationSessionId)
+    {
+        var running = _running.GetValue(session, static _ => []);
+        lock (running)
+        {
+            if (running.Count >= _maxOperationsPerConnection)
+                return false;
+            running.Add(operationSessionId);
+            return true;
+        }
     }
 
     private ValueTask<ConnectionStatus> AuthenticateAsync(

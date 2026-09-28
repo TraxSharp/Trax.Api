@@ -38,7 +38,7 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 
 | Area | ADRs |
 | --- | --- |
-| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md), [0009](./0009-the-endpoint-policy-applies-to-every-transport.md), [0010](./0010-a-scheme-policy-requires-its-scheme.md), [0011](./0011-subscriptions-carry-the-authorization-of-the-data-they-stream.md) |
+| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md), [0009](./0009-the-endpoint-policy-applies-to-every-transport.md), [0010](./0010-a-scheme-policy-requires-its-scheme.md), [0011](./0011-subscriptions-carry-the-authorization-of-the-data-they-stream.md), [0015](./0015-a-socket-runs-a-bounded-number-of-operations.md) |
 | `platform` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md) |
 | `auth` | [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0006](./0006-one-socket-interceptor-composes-every-token-scheme.md), [0008](./0008-a-token-scheme-requires-a-credential-on-every-socket.md), [0009](./0009-the-endpoint-policy-applies-to-every-transport.md), [0010](./0010-a-scheme-policy-requires-its-scheme.md), [0011](./0011-subscriptions-carry-the-authorization-of-the-data-they-stream.md) |
 
@@ -55,3 +55,4 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 | [0009](./0009-the-endpoint-policy-applies-to-every-transport.md) | The endpoint policy applies to every transport | graphql, auth |
 | [0010](./0010-a-scheme-policy-requires-its-scheme.md) | A scheme policy requires its scheme | graphql, auth |
 | [0011](./0011-subscriptions-carry-the-authorization-of-the-data-they-stream.md) | Subscriptions carry the authorization of the data they stream | graphql, auth |
+| [0015](./0015-a-socket-runs-a-bounded-number-of-operations.md) | A socket runs a bounded number of operations | graphql |

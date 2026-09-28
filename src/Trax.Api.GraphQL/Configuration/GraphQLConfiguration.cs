@@ -63,6 +63,11 @@ public class GraphQLConfiguration
     public int MaxOperationsPerRequest { get; }
 
     /// <summary>
+    /// Maximum operations one WebSocket connection runs at once (default 100).
+    /// </summary>
+    public int MaxOperationsPerConnection { get; internal init; } = 100;
+
+    /// <summary>
     /// True when <c>RequireAuthorization()</c> was called on the builder.
     /// Gates GraphQL execution (HTTP POST and GET-with-query); the BCP tool
     /// page and schema introspection are governed independently.

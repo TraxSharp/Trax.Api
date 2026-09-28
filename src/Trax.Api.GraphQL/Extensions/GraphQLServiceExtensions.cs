@@ -550,8 +550,18 @@ public static class GraphQLServiceExtensions
         services.TryAddSingleton(sp => new TraxApplicationServices(sp));
         graphqlBuilder.BridgeApplicationService<TraxApplicationServices>();
         graphqlBuilder.AddSocketSessionInterceptor(sp => new TraxCompositeSocketInterceptor(
-            sp.GetRequiredService<TraxApplicationServices>()
+            sp.GetRequiredService<TraxApplicationServices>(),
+            config.MaxOperationsPerConnection
         ));
+
+        // A connection runs a bounded number of operations at once. The composite marks an
+        // operation past the limit and this middleware refuses it with a coded error. See
+        // docs/adr/0015-a-socket-runs-a-bounded-number-of-operations.md.
+        graphqlBuilder.UseRequest(
+            SocketOperationLimitRequestMiddleware.Create,
+            key: SocketOperationLimitRequestMiddleware.Key,
+            before: "DocumentCacheMiddleware"
+        );
 
         // A backstop, not an ordering check: it fails the host if a token scheme is registered
         // and HotChocolate's accept-everything default is what would answer connection_init.
