@@ -55,6 +55,7 @@ namespace Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder ExposeOperationMutations() { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder ExposeOperationQueries() { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder GateOperations(string? policy = null, string? roles = null) { }
+        public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder GateOperationsToAuthenticatedUsers() { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder MaxExecutionDepth(int depth) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder MaxOperationsPerRequest(int maxOperations) { }
         public Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder.TraxGraphQLBuilder RequireAuthorization(string? policy = null) { }

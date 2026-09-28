@@ -471,7 +471,7 @@ public class OperationsExposureTests
         Action act = () =>
             Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
                 services,
-                g => g.ExposeOperationQueries().GateOperations()
+                g => g.ExposeOperationQueries().GateOperations(roles: "admin")
             );
 
         act.Should().NotThrow();
@@ -520,7 +520,10 @@ public class OperationsExposureTests
         Action act = () =>
             Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
                 services,
-                g => g.ExposeOperationQueries().GateOperations().AllowAnonymousOperations()
+                g =>
+                    g.ExposeOperationQueries()
+                        .GateOperations(roles: "admin")
+                        .AllowAnonymousOperations()
             );
 
         act.Should()
@@ -540,7 +543,10 @@ public class OperationsExposureTests
         Action act = () =>
             Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
                 services,
-                g => g.ExposeOperationQueries().AllowAnonymousOperations().GateOperations()
+                g =>
+                    g.ExposeOperationQueries()
+                        .AllowAnonymousOperations()
+                        .GateOperations(roles: "admin")
             );
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*GateOperations()*");
@@ -562,12 +568,68 @@ public class OperationsExposureTests
             .WithMessage("*the operations namespace is not exposed*");
     }
 
+    /// <summary>
+    /// A parameterless <c>GateOperations()</c> used to require only an authenticated caller,
+    /// which on a host with public sign-up is every user. It now fails at startup, and "any
+    /// authenticated user" has to be spelled out with <c>GateOperationsToAuthenticatedUsers()</c>.
+    /// </summary>
+    [TestCase(null, null)]
+    [TestCase("", "")]
+    [TestCase("  ", null)]
+    public void GateOperations_WithNoPolicyOrRoles_FailsAtStartup(string? policy, string? roles)
+    {
+        var services = BuildBaseServices(_emptyDiscovery);
+
+        Action act = () =>
+            Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
+                services,
+                g => g.ExposeOperationQueries().GateOperations(policy, roles)
+            );
+
+        act.Should()
+            .Throw<InvalidOperationException>(
+                "see docs/adr/0004-the-operations-namespace-gates-independently-of-the-endpoint.md"
+            )
+            .WithMessage("*policy or roles*GateOperationsToAuthenticatedUsers()*");
+    }
+
+    [Test]
+    public void GateOperationsToAuthenticatedUsers_WithQueriesExposed_DoesNotThrow()
+    {
+        var services = BuildBaseServices(_emptyDiscovery);
+
+        Action act = () =>
+            Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
+                services,
+                g => g.ExposeOperationQueries().GateOperationsToAuthenticatedUsers()
+            );
+
+        act.Should().NotThrow();
+    }
+
+    [Test]
+    public void GateOperationsToAuthenticatedUsers_AddsAnAttributeWithNoPolicyOrRoles()
+    {
+        var builder = new TraxGraphQLBuilder(new ServiceCollection());
+
+        builder.ExposeOperationQueries().GateOperationsToAuthenticatedUsers();
+
+        var attribute = builder
+            .Build()
+            .OperationsAuthorizeAttributes.Should()
+            .ContainSingle()
+            .Which;
+        attribute.Policy.Should().BeNull();
+        attribute.Roles.Should().BeNull();
+    }
+
     [Test]
     public void GateOperations_ReturnsSameBuilder()
     {
         var builder = new TraxGraphQLBuilder(new ServiceCollection());
 
-        builder.GateOperations().Should().BeSameAs(builder);
+        builder.GateOperations(roles: "admin").Should().BeSameAs(builder);
+        builder.GateOperationsToAuthenticatedUsers().Should().BeSameAs(builder);
     }
 
     [Test]
