@@ -222,6 +222,53 @@ public class ExtensionMethodTests
         sc.Should().Contain(s => s.ServiceType == typeof(DbPersistedOperationStorage));
     }
 
+    /// <summary>
+    /// A host with no GraphQL server, such as a CI uploader, calls only AddPersistedOperationStore.
+    /// The store has to resolve from that container alone, with nothing the GraphQL path adds.
+    /// </summary>
+    [Test]
+    public async Task AddPersistedOperationStore_Alone_ResolvesTheStore()
+    {
+        var sc = new ServiceCollection();
+        sc.AddLogging();
+        sc.AddSingleton<
+            Trax.Effect.Data.Services.IDataContextFactory.IDataContextProviderFactory,
+            StubDataContextFactory
+        >();
+        sc.AddPersistedOperationStore(FakeConn);
+
+        await using var sp = sc.BuildServiceProvider(
+            new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }
+        );
+
+        sp.GetRequiredService<IPersistedOperationStore>()
+            .Should()
+            .BeSameAs(sp.GetRequiredService<DbPersistedOperationStorage>());
+    }
+
+    /// <summary>
+    /// With no request executor in the container, invalidating after a write has no
+    /// HotChocolate cache to empty and must not fail.
+    /// </summary>
+    [Test]
+    public async Task AddPersistedOperationStore_Alone_InvalidatorIsANoOp()
+    {
+        var sc = new ServiceCollection();
+        sc.AddLogging();
+        sc.AddSingleton<
+            Trax.Effect.Data.Services.IDataContextFactory.IDataContextProviderFactory,
+            StubDataContextFactory
+        >();
+        sc.AddPersistedOperationStore(FakeConn);
+        await using var sp = sc.BuildServiceProvider();
+
+        var invalidate = () =>
+            sp.GetRequiredService<HotChocolateOperationCacheInvalidator>()
+                .InvalidateAsync(CancellationToken.None);
+
+        await invalidate.Should().NotThrowAsync();
+    }
+
     [Test]
     public void RabbitMqBroadcaster_EmptyConnectionString_Throws()
     {
