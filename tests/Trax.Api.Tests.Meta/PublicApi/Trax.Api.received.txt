@@ -346,6 +346,7 @@ namespace Trax.Api.DTOs
     {
         public TrainLifecycleEvent(long MetadataId, string ExternalId, string TrainName, Trax.Effect.Enums.TrainState TrainState, System.DateTime Timestamp, string? FailureJunction, string? FailureReason, string? Output, string? HostName = null, string? HostEnvironment = null) { }
         public string ExternalId { get; init; }
+        public string? FailureException { get; init; }
         public string? FailureJunction { get; init; }
         public string? FailureReason { get; init; }
         public string? HostEnvironment { get; init; }

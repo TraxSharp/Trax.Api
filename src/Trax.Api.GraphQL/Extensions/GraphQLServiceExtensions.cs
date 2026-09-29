@@ -134,6 +134,12 @@ public static class GraphQLServiceExtensions
                 sp.GetRequiredService<LifecycleHookFactory<GraphQLSubscriptionHook>>()
             );
 
+        // Who may receive what from the subscriptions; see LifecycleSubscriptionAccess. It
+        // evaluates policies with ASP.NET Core's IAuthorizationService, which needs logging.
+        services.AddLogging();
+        services.AddAuthorization();
+        services.AddSingleton<LifecycleSubscriptionAccess>();
+
         // Deliver coalesced change signals to the local onDataChanged subscription. The change-
         // signal pipeline itself is registered by AddTrax(); this is the in-process delivery sink.
         services.AddSingleton<IChangeSignalSink, TopicEventSenderChangeSink>();
@@ -681,7 +687,11 @@ public static class GraphQLServiceExtensions
     {
         var violations = new List<string>();
 
-        foreach (var reg in registrations.Where(r => r.IsQuery || r.IsMutation))
+        // A [TraxBroadcast] train streams its runs to subscribers, which exposes them as surely
+        // as a query field does, so it answers the same question.
+        foreach (
+            var reg in registrations.Where(r => r.IsQuery || r.IsMutation || r.IsBroadcastEnabled)
+        )
         {
             var violation = ExposureAuthorizationRule.Evaluate(
                 hasAuthorize: reg.HasAuthorizeAttribute,
@@ -692,7 +702,9 @@ public static class GraphQLServiceExtensions
             if (violation != ExposureViolation.None)
                 violations.Add(
                     ExposureAuthorizationRule.BuildMessage(
-                        "GraphQL-exposed train",
+                        reg.IsQuery || reg.IsMutation
+                            ? "GraphQL-exposed train"
+                            : "[TraxBroadcast] train",
                         reg.ServiceType.FullName!,
                         violation
                     )

@@ -282,17 +282,17 @@ namespace Trax.Api.GraphQL.Subscriptions
     public class LifecycleSubscriptions
     {
         public LifecycleSubscriptions() { }
-        [HotChocolate.Types.Subscribe]
+        [HotChocolate.Types.Subscribe(With="SubscribeToDataChanged")]
         public Trax.Api.DTOs.DataChangedEvent OnDataChanged([HotChocolate.EventMessage] Trax.Api.DTOs.DataChangedEvent e) { }
-        [HotChocolate.Types.Subscribe]
+        [HotChocolate.Types.Subscribe(With="SubscribeToTrainCancelled")]
         public Trax.Api.DTOs.TrainLifecycleEvent OnTrainCancelled([HotChocolate.EventMessage] Trax.Api.DTOs.TrainLifecycleEvent e) { }
-        [HotChocolate.Types.Subscribe]
+        [HotChocolate.Types.Subscribe(With="SubscribeToTrainCompleted")]
         public Trax.Api.DTOs.TrainLifecycleEvent OnTrainCompleted([HotChocolate.EventMessage] Trax.Api.DTOs.TrainLifecycleEvent e) { }
-        [HotChocolate.Types.Subscribe]
+        [HotChocolate.Types.Subscribe(With="SubscribeToTrainFailed")]
         public Trax.Api.DTOs.TrainLifecycleEvent OnTrainFailed([HotChocolate.EventMessage] Trax.Api.DTOs.TrainLifecycleEvent e) { }
-        [HotChocolate.Types.Subscribe]
+        [HotChocolate.Types.Subscribe(With="SubscribeToTrainStarted")]
         public Trax.Api.DTOs.TrainLifecycleEvent OnTrainStarted([HotChocolate.EventMessage] Trax.Api.DTOs.TrainLifecycleEvent e) { }
-        [HotChocolate.Types.Subscribe]
+        [HotChocolate.Types.Subscribe(With="SubscribeToTrainStateChanged")]
         public Trax.Api.DTOs.TrainLifecycleEvent OnTrainStateChanged([HotChocolate.EventMessage] Trax.Api.DTOs.TrainLifecycleEvent e) { }
     }
     public sealed class TrainLifecycleStreamOptions
