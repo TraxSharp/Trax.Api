@@ -232,8 +232,8 @@ public static class GraphQLServiceExtensions
         // resolves IAuthenticationSchemeProvider, which a host that never called AddAuthentication()
         // does not have.
         //
-        // Three things can put one in the schema: a [TraxAuthorize] query model, GateOperations()
-        // on the operations namespace, and [TraxAuthorize] or [TraxAllowAnonymous] on a
+        // Three things can put one in the schema: a [TraxAuthorize] query model, an operations
+        // gate (GateOperations(...) or GateOperationsToAuthenticatedUsers()), and [TraxAuthorize] or [TraxAllowAnonymous] on a
         // type-extension resolver, which is what TypeExtensionExposureInterceptor requires of a
         // field that inherits no gate and turns into an @authorize directive.
         var authorizationInSchema =

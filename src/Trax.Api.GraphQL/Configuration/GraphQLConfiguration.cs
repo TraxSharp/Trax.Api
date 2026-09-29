@@ -93,7 +93,8 @@ public class GraphQLConfiguration
 
     /// <summary>
     /// Every <c>[TraxAuthorize]</c> shape passed to
-    /// <c>TraxGraphQLBuilder.GateOperations()</c>. Empty when the namespace carries no gate of
+    /// <c>TraxGraphQLBuilder.GateOperations(...)</c> or
+    /// <c>GateOperationsToAuthenticatedUsers()</c>. Empty when the namespace carries no gate of
     /// its own, in which case the endpoint gate (or
     /// <c>AllowAnonymousOperations()</c>) is what governs it.
     /// </summary>
