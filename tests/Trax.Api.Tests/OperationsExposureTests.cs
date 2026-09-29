@@ -7,6 +7,7 @@ using NSubstitute;
 using Trax.Api.GraphQL.Configuration;
 using Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder;
 using Trax.Api.Services.HealthCheck;
+using Trax.Api.Tests.Fakes;
 using Trax.Effect.Attributes;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
@@ -718,7 +719,7 @@ public class OperationsExposureTests
 
     private static IServiceCollection BuildBaseServices(ITrainDiscoveryService discovery)
     {
-        var services = new ServiceCollection();
+        var services = new ServiceCollection().AddDevelopmentEnvironment();
         services.AddSingleton<Trax.Effect.Configuration.TraxBuilder.TraxMarker>();
         services.AddSingleton<ITrainDiscoveryService>(discovery);
         services.AddSingleton(Substitute.For<IEffectRegistry>());

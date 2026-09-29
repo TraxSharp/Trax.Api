@@ -59,14 +59,25 @@ public partial class TraxGraphQLBuilder
     }
 
     /// <summary>
-    /// Supplies a predicate that decides, per request, whether introspection
-    /// is allowed. The default is "allow only in Development" — schemas should
-    /// not be enumerable by anonymous clients in production.
+    /// Supplies a predicate that decides, per request, whether the schema may be read. The
+    /// default is "allow only in Development": schemas should not be enumerable by anonymous
+    /// clients in production.
     /// </summary>
     /// <remarks>
-    /// Predicate returns <c>true</c> to allow introspection, <c>false</c> to deny.
-    /// Introspection queries that hit a denying predicate fail validation with
-    /// the usual HotChocolate error.
+    /// <para>
+    /// The predicate returns <c>true</c> to allow, <c>false</c> to deny, and once set it decides in
+    /// every environment, Development included. It is called with the request's
+    /// <see cref="HttpContext"/> for every operation on every transport (HTTP POST, GET,
+    /// multipart and WebSocket), so it can read the authenticated user. On a socket that is the
+    /// upgrade request, carrying the principal the socket authenticated as.
+    /// </para>
+    /// <para>
+    /// An operation that selects introspection fields while denied fails validation with
+    /// HotChocolate's <c>HC0046</c> error. The schema download (<c>?sdl</c>, <c>/schema</c>,
+    /// <c>/schema.graphql</c>) and the GraphQL IDE follow the same answer on the endpoint
+    /// <c>UseTraxGraphQL</c> maps, and a denied request gets 404. An operation built in-process,
+    /// with no HTTP request, is answered by the environment alone.
+    /// </para>
     /// </remarks>
     public TraxGraphQLBuilder AllowIntrospection(Predicate<HttpContext> predicate)
     {

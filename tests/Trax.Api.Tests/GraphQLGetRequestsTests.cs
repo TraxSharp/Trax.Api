@@ -118,7 +118,9 @@ public class GraphQLGetRequestsTests
     [Test]
     public async Task The_IDE_page_is_still_served_with_GET_off()
     {
-        using var host = await StartHostAsync(graphql => graphql);
+        // The IDE follows the introspection decision, which is off outside Development unless
+        // the host allows it; this test is about GET, so it allows introspection.
+        using var host = await StartHostAsync(graphql => graphql.AllowIntrospection(_ => true));
         var client = host.GetTestClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Get, Path + "/");

@@ -23,6 +23,7 @@ using Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder;
 using Trax.Api.GraphQL.Errors;
 using Trax.Api.GraphQL.Filtering.ListElements;
 using Trax.Api.GraphQL.Hooks;
+using Trax.Api.GraphQL.Introspection;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Projection;
 using Trax.Api.GraphQL.Queries;
@@ -446,6 +447,12 @@ public static class GraphQLServiceExtensions
     /// in the same application. Use the optional <paramref name="configure"/> callback
     /// to apply endpoint conventions such as authorization or rate limiting.
     /// </summary>
+    /// <remarks>
+    /// The schema download (<c>?sdl</c>, <c>/schema</c>, <c>/schema.graphql</c>) and the GraphQL IDE
+    /// on this endpoint follow the same per-request decision as introspection: allowed in
+    /// Development, refused with 404 elsewhere, unless <c>AllowIntrospection(predicate)</c> says
+    /// otherwise.
+    /// </remarks>
     /// <example>
     /// <code>
     /// app.UseTraxGraphQL(configure: endpoint => endpoint
@@ -462,6 +469,12 @@ public static class GraphQLServiceExtensions
         // by WebSocketsStartupFilter (registered in AddTraxGraphQL), so it always
         // runs before endpoint execution regardless of host middleware ordering.
         var endpoint = app.MapGraphQL(routePrefix, SchemaName);
+        // The schema download and the IDE follow the same per-request decision as introspection.
+        SchemaDocumentGate.Apply(
+            endpoint,
+            new PathString(routePrefix.TrimEnd('/')),
+            app.Services.GetRequiredService<IntrospectionPolicy>()
+        );
         configure?.Invoke(endpoint);
         return app;
     }
@@ -508,22 +521,39 @@ public static class GraphQLServiceExtensions
             config.CostOverride?.Invoke(opts);
         });
 
-        // G3 — Conditional introspection. Default: on in Development, off elsewhere.
-        // Consumer predicate wins. DisableIntrospection's delegate returns TRUE to
-        // disable, so invert our "allow" predicate.
-        graphqlBuilder.DisableIntrospection(
-            (sp, _) =>
-            {
-                var httpCtx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
-                if (httpCtx is null)
-                    return false;
-
-                if (config.IntrospectionPredicate is not null)
-                    return !config.IntrospectionPredicate(httpCtx);
-
-                var env = sp.GetService<IHostEnvironment>();
-                return env?.IsDevelopment() != true;
-            }
+        // G3 — Introspection, decided per request. HotChocolate reads the DisableIntrospection
+        // option once, when the executor is built and no request exists, so the schema-level
+        // switch is always on and a request is let through only by the allowance middleware,
+        // which runs before validation on every transport. See
+        // docs/adr/0012-introspection-is-decided-per-request.md.
+        services.TryAddSingleton(sp => new IntrospectionPolicy(
+            config.IntrospectionPredicate,
+            sp.GetService<IHostEnvironment>()
+        ));
+        graphqlBuilder.DisableIntrospection(true);
+        // With no predicate the answer outside Development is always no, so the schema download
+        // and the IDE are switched off in the schema's own server options too. That covers a host
+        // that maps the endpoint itself instead of calling UseTraxGraphQL, whose per-request gate
+        // it would otherwise skip.
+        services
+            .AddOptions<HotChocolate.AspNetCore.GraphQLServerOptions>(SchemaName)
+            .Configure<IServiceProvider>(
+                (options, sp) =>
+                {
+                    if (
+                        config.IntrospectionPredicate is null
+                        && sp.GetService<IHostEnvironment>()?.IsDevelopment() != true
+                    )
+                    {
+                        options.EnableSchemaRequests = false;
+                        options.Tool.Enable = false;
+                    }
+                }
+            );
+        graphqlBuilder.UseRequest(
+            IntrospectionAllowanceMiddleware.Create,
+            key: IntrospectionAllowanceMiddleware.Key,
+            before: WellKnownRequestMiddleware.DocumentValidationMiddleware
         );
 
         // G8 — HTTP GET. Off unless the host opts in: a cross-site top-level navigation carries a
