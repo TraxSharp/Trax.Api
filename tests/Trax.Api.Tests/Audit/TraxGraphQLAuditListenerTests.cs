@@ -155,7 +155,7 @@ public class TraxGraphQLAuditListenerTests
     #region ShouldSkip
 
     [Test]
-    public async Task IntrospectionQuery_ByOperationName_IsSkipped()
+    public async Task IntrospectionDocument_Named_IsSkipped()
     {
         await using var host = await TestHost.BuildAsync();
 
@@ -167,6 +167,45 @@ public class TraxGraphQLAuditListenerTests
         AssertNoErrors(result);
 
         host.DrainEntries().Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task IntrospectionDocument_Unnamed_IsSkipped()
+    {
+        await using var host = await TestHost.BuildAsync();
+
+        var result = await host.Executor.ExecuteAsync("{ __typename }");
+        AssertNoErrors(result);
+
+        host.DrainEntries().Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task DataDocument_NamedIntrospectionQuery_IsCaptured()
+    {
+        // Whether a request is introspection is read from the operation that executed, so a
+        // document selecting data fields is audited whatever its operation is named.
+        await using var host = await TestHost.BuildAsync();
+
+        var result = await host.Executor.ExecuteAsync(
+            QueryRequestBuilder("query IntrospectionQuery { ping }")
+                .SetOperationName("IntrospectionQuery")
+                .Build()
+        );
+        AssertNoErrors(result);
+
+        host.DrainEntries().Should().HaveCount(1);
+    }
+
+    [Test]
+    public async Task MixedDocument_IntrospectionAndDataFields_IsCaptured()
+    {
+        await using var host = await TestHost.BuildAsync();
+
+        var result = await host.Executor.ExecuteAsync("{ __typename ping }");
+        AssertNoErrors(result);
+
+        host.DrainEntries().Should().HaveCount(1);
     }
 
     [Test]

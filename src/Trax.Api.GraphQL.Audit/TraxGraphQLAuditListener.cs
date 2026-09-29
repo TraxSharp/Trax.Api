@@ -42,9 +42,6 @@ public sealed class TraxGraphQLAuditListener(
     {
         try
         {
-            if (ShouldSkipOnStart(context))
-                return EmptyScope;
-
             var startTicks = timeProvider.GetTimestamp();
             var startTime = timeProvider.GetUtcNow();
             var principal = CapturePrincipal();
@@ -76,27 +73,47 @@ public sealed class TraxGraphQLAuditListener(
     }
 
     /// <summary>
-    /// Checks the only predicate that is knowable before the document is parsed: the
-    /// caller-supplied operation name. The subscription check needs the compiled
-    /// operation and therefore runs in <see cref="ShouldSkipOnComplete"/>.
+    /// Both skips need the compiled operation, which exists only partway through the pipeline,
+    /// so they are decided when the scope completes rather than when it opens. A request that
+    /// never produced an operation (a parse or validation failure) is audited.
     /// </summary>
-    private bool ShouldSkipOnStart(RequestContext context)
+    private bool ShouldSkipOnComplete(RequestContext context)
     {
-        if (!_options.SkipIntrospection)
+        if (!_options.SkipIntrospection && !_options.SkipSubscriptions)
             return false;
 
-        var operationName = context.Request.OperationName;
-        return string.Equals(operationName, "IntrospectionQuery", StringComparison.Ordinal);
+        if (!context.TryGetOperation(out var operation))
+            return false;
+
+        if (_options.SkipSubscriptions && operation.Kind == OperationType.Subscription)
+            return true;
+
+        return _options.SkipIntrospection && SelectsOnlyIntrospection(operation.Definition);
     }
 
     /// <summary>
-    /// The operation is only compiled partway through the pipeline, so its type cannot be
-    /// read when the scope opens. Subscriptions are therefore filtered on the way out.
+    /// True when every top-level selection of the executed operation is <c>__schema</c>,
+    /// <c>__type</c> or <c>__typename</c>. A fragment spread or inline fragment at the top level
+    /// is not treated as introspection, so the request is audited.
     /// </summary>
-    private bool ShouldSkipOnComplete(RequestContext context) =>
-        _options.SkipSubscriptions
-        && context.TryGetOperation(out var operation)
-        && operation.Kind == OperationType.Subscription;
+    private static bool SelectsOnlyIntrospection(OperationDefinitionNode definition)
+    {
+        var selections = definition.SelectionSet.Selections;
+        if (selections.Count == 0)
+            return false;
+
+        foreach (var selection in selections)
+        {
+            if (selection is not FieldNode field)
+                return false;
+
+            var name = field.Name.Value;
+            if (name is not ("__schema" or "__type" or "__typename"))
+                return false;
+        }
+
+        return true;
+    }
 
     private (string Id, string? Type) CapturePrincipal()
     {
