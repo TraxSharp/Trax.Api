@@ -281,6 +281,24 @@ public class PersistedOperationsMiddlewareTests
     }
 
     [Test]
+    public async Task DocumentNamedIntrospectionQuery_SelectingDataFields_RequiresPersistence()
+    {
+        // Introspection is recognised from what the document selects, and the operation name
+        // plays no part, so a document that selects data fields requires persistence.
+        var (mw, calls) = Build(b => b.RequirePersisted(true));
+        var ctx = BuildContext(
+            query: "query IntrospectionQuery { users { id } }",
+            operationName: "IntrospectionQuery"
+        );
+
+        await mw.InvokeAsync(ctx);
+
+        calls.NextCalls.Should().Be(0);
+        ctx.Response.StatusCode.Should().Be(400);
+        ResponseBody(ctx).Should().Contain("PERSISTED_OPERATION_REQUIRED");
+    }
+
+    [Test]
     public async Task IntrospectionQuery_WithDisableIntrospection_IsRejected()
     {
         var (mw, calls) = Build(b => b.RequirePersisted(true).DisableIntrospection());
