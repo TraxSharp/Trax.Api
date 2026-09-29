@@ -116,7 +116,8 @@ public class AdminEndpointStressTests : StressTestSetup
             (sp, _) =>
             {
                 var effects = new OperationsQueries().GetEffects(
-                    sp.GetRequiredService<IEffectRegistry>()
+                    sp.GetRequiredService<IEffectRegistry>(),
+                    sp
                 );
                 effects.Should().NotBeNull();
                 return Task.CompletedTask;
