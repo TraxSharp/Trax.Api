@@ -8,7 +8,7 @@ namespace Trax.Api.Services.HealthCheck;
 /// Registered by <see cref="Trax.Api.Extensions.HealthCheckExtensions.AddTraxHealthCheck"/>;
 /// infrastructure not intended to be used directly.
 /// </summary>
-public class TraxHealthCheck(ITraxHealthService healthService) : IHealthCheck
+internal class TraxHealthCheck(ITraxHealthService healthService) : IHealthCheck
 {
     /// <summary>
     /// Reports <c>Healthy</c> when <see cref="Trax.Api.DTOs.HealthStatus.Status"/> is <c>Healthy</c>

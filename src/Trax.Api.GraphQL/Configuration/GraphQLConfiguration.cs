@@ -149,7 +149,7 @@ public class GraphQLConfiguration
     /// <param name="operationMutationsExposed">Whether the <c>operations</c> mutation namespace is in the schema.</param>
     /// <param name="filterModules">Filter convention modules added with <c>ConfigureFiltering()</c>; <c>null</c> for none.</param>
     /// <param name="operationsAuthorizeAttributes">The authorization shapes that gate the <c>operations</c> namespace; <c>null</c> for no namespace gate of its own.</param>
-    public GraphQLConfiguration(
+    internal GraphQLConfiguration(
         IReadOnlyList<QueryModelRegistration> modelRegistrations,
         IReadOnlyList<Type> additionalTypeModules,
         IReadOnlyList<Action<IRequestExecutorBuilder>> schemaConfigurations,

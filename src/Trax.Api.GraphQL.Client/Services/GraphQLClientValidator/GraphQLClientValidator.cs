@@ -9,7 +9,7 @@ namespace Trax.Api.GraphQL.Client;
 /// The default <see cref="IGraphQLClientValidator"/>, registered by <c>AddTraxGraphQLClient</c>.
 /// Infrastructure not intended to be used directly; depend on <see cref="IGraphQLClientValidator"/>.
 /// </summary>
-public class GraphQLClientValidator : IGraphQLClientValidator
+internal class GraphQLClientValidator : IGraphQLClientValidator
 {
     private readonly ISchemaProvider _schemaProvider;
     private readonly DocumentValidator _validator = new();

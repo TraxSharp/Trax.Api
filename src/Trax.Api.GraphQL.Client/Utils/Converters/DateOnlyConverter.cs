@@ -8,7 +8,7 @@ namespace Trax.Api.GraphQL.Client.Utils.Converters;
 /// ISO-8601 date or date-time string (a JSON <c>null</c> reads as <see cref="DateOnly.MinValue"/>) and writes
 /// midnight UTC as a full ISO-8601 date-time. Infrastructure not intended to be used directly.
 /// </summary>
-public class DateOnlyConverter : JsonConverter<DateOnly>
+internal class DateOnlyConverter : JsonConverter<DateOnly>
 {
     /// <inheritdoc/>
     public override DateOnly Read(

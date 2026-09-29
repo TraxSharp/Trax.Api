@@ -11,7 +11,8 @@ namespace Trax.Api.Services.HealthCheck;
 /// Replace it through <see cref="ITraxHealthService"/>.
 /// </summary>
 /// <param name="dataContextFactory">Opens the data context the counts are read from.</param>
-public class TraxHealthService(IDataContextProviderFactory dataContextFactory) : ITraxHealthService
+internal class TraxHealthService(IDataContextProviderFactory dataContextFactory)
+    : ITraxHealthService
 {
     /// <inheritdoc/>
     public async Task<HealthStatus> GetHealthAsync(CancellationToken ct = default)

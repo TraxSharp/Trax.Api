@@ -30,8 +30,8 @@ public class GraphQLClientConfigurationBuilder
     /// Builds a configuration from the current options. Each call creates a new GraphQL.Client HTTP
     /// client over the same <see cref="HttpClient"/>.
     /// </summary>
-    public GraphQLClientConfiguration Build() =>
-        new(
+    public IGraphQLClientConfiguration Build() =>
+        new GraphQLClientConfiguration(
             _baseAddress,
             WebsocketJsonSerializer,
             GraphQLClientOptions,

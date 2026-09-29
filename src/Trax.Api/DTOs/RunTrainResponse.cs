@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace Trax.Api.DTOs;
 
 /// <summary>
@@ -5,4 +7,5 @@ namespace Trax.Api.DTOs;
 /// output: only the id of the execution that ran.
 /// </summary>
 /// <param name="MetadataId">The id of the execution, which the execution queries take.</param>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public record RunTrainResponse(long MetadataId);

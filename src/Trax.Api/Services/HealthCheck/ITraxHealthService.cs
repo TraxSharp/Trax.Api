@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Trax.Api.DTOs;
 
 namespace Trax.Api.Services.HealthCheck;
@@ -6,6 +7,7 @@ namespace Trax.Api.Services.HealthCheck;
 /// Queries Trax system health metrics from the database.
 /// Used by both the ASP.NET IHealthCheck and the GraphQL health query.
 /// </summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public interface ITraxHealthService
 {
     /// <summary>

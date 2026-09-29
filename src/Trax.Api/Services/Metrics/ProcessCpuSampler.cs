@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 
 namespace Trax.Api.Services.Metrics;
@@ -14,6 +15,7 @@ namespace Trax.Api.Services.Metrics;
 /// stateful per consumer: the scheduler and dashboard each need their own sampler. The first call
 /// only primes the baseline and returns <c>null</c>.
 /// </remarks>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public sealed class ProcessCpuSampler
 {
     private readonly Func<(TimeSpan Cpu, DateTime At)> _read;

@@ -10,7 +10,7 @@ namespace Trax.Api.GraphQL.Client;
 /// registration; not intended to be constructed directly. Depend on
 /// <see cref="IGraphQLClientConfiguration"/> instead.
 /// </summary>
-public class GraphQLClientConfiguration : IGraphQLClientConfiguration, IDisposable
+internal class GraphQLClientConfiguration : IGraphQLClientConfiguration, IDisposable
 {
     private bool _disposed;
 

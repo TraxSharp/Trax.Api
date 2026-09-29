@@ -11,7 +11,7 @@ namespace Trax.Api.GraphQL.Sinks;
 /// local delivery path: any WebSocket client subscribed to <c>onDataChanged</c> on this process
 /// receives one event per changed domain.
 /// </summary>
-public sealed class TopicEventSenderChangeSink : IChangeSignalSink
+internal sealed class TopicEventSenderChangeSink : IChangeSignalSink
 {
     private readonly ITopicEventSender _eventSender;
     private readonly TimeProvider _timeProvider;
