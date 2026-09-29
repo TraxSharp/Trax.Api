@@ -19,6 +19,8 @@ public partial class TraxGraphQLBuilder
 
     internal int MaxOperationsPerRequestValue { get; private set; } = 50;
 
+    internal int MaxOperationsPerConnectionValue { get; private set; } = 100;
+
     internal bool AuthorizationRequired { get; private set; }
 
     internal string? AuthorizationPolicy { get; private set; }
@@ -103,6 +105,25 @@ public partial class TraxGraphQLBuilder
                 "MaxOperationsPerRequest must be positive."
             );
         MaxOperationsPerRequestValue = maxOperations;
+        return this;
+    }
+
+    /// <summary>
+    /// Caps the number of operations one WebSocket connection runs at once. The default is
+    /// <c>100</c>. An operation the connection starts past the cap gets a GraphQL error with code
+    /// <c>TRAX_SOCKET_OPERATION_LIMIT</c> and takes no place; the connection stays open, and a
+    /// place frees when one of its operations completes. The cap is per connection, so it does
+    /// not limit how many connections a client opens.
+    /// </summary>
+    public TraxGraphQLBuilder MaxOperationsPerConnection(int maxOperations)
+    {
+        if (maxOperations <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(maxOperations),
+                maxOperations,
+                "MaxOperationsPerConnection must be positive."
+            );
+        MaxOperationsPerConnectionValue = maxOperations;
         return this;
     }
 
