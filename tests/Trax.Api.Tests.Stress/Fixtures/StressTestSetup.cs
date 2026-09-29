@@ -23,9 +23,12 @@ namespace Trax.Api.Tests.Stress.Fixtures;
 /// asserts each endpoint stays within a dashboard-acceptable latency budget.
 /// </summary>
 /// <remarks>
-/// Ignored by default so the suite never runs in normal CI (seeding millions of rows takes
-/// minutes). Run explicitly:
+/// Every concrete fixture carries <c>[Explicit]</c>, so the suite never runs in a normal
+/// <c>dotnet test</c> (seeding millions of rows takes minutes) and runs when selected:
 /// <code>dotnet test --filter TestCategory=Stress</code>
+/// The attribute goes on the concrete fixture, not here: NUnit does not inherit
+/// <c>[Explicit]</c> or <c>[Ignore]</c> from a base class, so one placed on this class skips
+/// nothing.
 /// Row counts and the target database come from <c>appsettings.json</c> and the
 /// <c>TRAX_STRESS_*</c> environment variables (see <see cref="StressProfile"/>). Because
 /// hosted services only start under a running host, building a plain <see cref="ServiceProvider"/>
@@ -34,7 +37,6 @@ namespace Trax.Api.Tests.Stress.Fixtures;
 /// </remarks>
 [TestFixture]
 [Category("Stress")]
-[Ignore("Stress tests — run manually with: dotnet test --filter TestCategory=Stress")]
 public abstract class StressTestSetup
 {
     private ServiceProvider _serviceProvider = null!;

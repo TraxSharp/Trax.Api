@@ -27,6 +27,9 @@ namespace Trax.Api.Tests.Stress.IntegrationTests;
 /// </remarks>
 [TestFixture]
 [Category("Stress")]
+[Explicit(
+    "Stress suite: seeds millions of rows. Run with dotnet test --filter TestCategory=Stress"
+)]
 public class AdminEndpointStressTests : StressTestSetup
 {
     private static IDataContextProviderFactory Factory(IServiceProvider sp) =>

@@ -3,7 +3,6 @@ using System.Text.Json;
 using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Subscriptions;
 using HotChocolate.AspNetCore.Subscriptions.Protocols;
-using HotChocolate.Execution;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Trax.Api.Auth;
@@ -73,28 +72,6 @@ public sealed class TraxApiKeySocketInterceptor(
         AttachPrincipalToRequest(session, claimsPrincipal);
 
         return await base.OnConnectAsync(session, connectionInitMessage, cancellationToken);
-    }
-
-    public override async ValueTask OnRequestAsync(
-        ISocketSession session,
-        string operationSessionId,
-        OperationRequestBuilder requestBuilder,
-        CancellationToken cancellationToken = default
-    )
-    {
-        // Re-assert the principal onto per-operation HttpContext each time — HC reuses
-        // the same HttpContext object for the socket lifetime, but guards here are cheap
-        // and prevent a regression where a middleware downstream resets User.
-        if (
-            session.Connection.HttpContext is { } httpContext
-            && httpContext.User.Identity?.IsAuthenticated != true
-        )
-        {
-            // No-op: principal was never attached at init; OnConnectAsync already
-            // rejected the connection in that path. Defensive branch only.
-        }
-
-        await base.OnRequestAsync(session, operationSessionId, requestBuilder, cancellationToken);
     }
 
     private static void AttachPrincipalToRequest(
