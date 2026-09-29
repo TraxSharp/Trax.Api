@@ -1,6 +1,7 @@
 using FluentAssertions;
 using HotChocolate.Execution;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder;
@@ -160,37 +161,23 @@ public class ExtensionMethodTests
     }
 
     [Test]
-    public void UsePersistedOperationsEnforcement_OnRealAppBuilder_RegistersMiddlewareInPipeline()
+    public void UsePersistedOperationsEnforcement_AddsNothingToTheAspNetPipeline()
     {
-        // Build a real ApplicationBuilder with the middleware's dependencies
-        // resolvable, call the extension, and verify the middleware fires
-        // by sending a request through the resulting RequestDelegate.
-        var sc = new ServiceCollection();
-        sc.AddLogging();
-        sc.AddSingleton<
-            Trax.Effect.Data.Services.IDataContextFactory.IDataContextProviderFactory,
-            StubDataContextFactory
-        >();
-        var builder = new TraxGraphQLBuilder(sc);
-        builder.UsePersistedOperations(opts => opts.UseDatabase(FakeConn));
-        var sp = sc.BuildServiceProvider();
+        // Enforcement lives in HotChocolate's execution pipeline, so the ASP.NET extension is
+        // kept for existing hosts and changes nothing. The terminal delegate still answers.
+        var app = new ApplicationBuilder(new ServiceCollection().BuildServiceProvider());
 
-        var app = new ApplicationBuilder(sp);
-        // Terminal middleware: marks the response and short-circuits.
+        var returned = app.UsePersistedOperationsEnforcement();
+        returned.Should().BeSameAs(app, "extension must return the same builder for chaining");
         app.Run(ctx =>
         {
             ctx.Response.StatusCode = 204;
             return Task.CompletedTask;
         });
-        // The extension under test:
-        var returned = app.UsePersistedOperationsEnforcement();
-        returned.Should().BeSameAs(app, "extension must return the same builder for chaining");
 
-        // Build the pipeline. If UseMiddleware<PersistedOperationsMiddleware>
-        // was wired correctly, this will succeed; if dependencies are missing
-        // or types are wrong, Build throws.
-        var pipeline = app.Build();
-        pipeline.Should().NotBeNull();
+        var context = new DefaultHttpContext();
+        app.Build()(context).GetAwaiter().GetResult();
+        context.Response.StatusCode.Should().Be(204);
     }
 
     [Test]
