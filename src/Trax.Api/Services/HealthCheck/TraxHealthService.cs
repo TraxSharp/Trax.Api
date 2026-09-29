@@ -5,8 +5,15 @@ using Trax.Effect.Enums;
 
 namespace Trax.Api.Services.HealthCheck;
 
+/// <summary>
+/// The default <see cref="ITraxHealthService"/>, registered by <c>AddTraxApi</c>. Infrastructure
+/// used by the health query and <see cref="TraxHealthCheck"/>; not intended to be used directly.
+/// Replace it through <see cref="ITraxHealthService"/>.
+/// </summary>
+/// <param name="dataContextFactory">Opens the data context the counts are read from.</param>
 public class TraxHealthService(IDataContextProviderFactory dataContextFactory) : ITraxHealthService
 {
+    /// <inheritdoc/>
     public async Task<HealthStatus> GetHealthAsync(CancellationToken ct = default)
     {
         using var db = await dataContextFactory.CreateDbContextAsync(ct);

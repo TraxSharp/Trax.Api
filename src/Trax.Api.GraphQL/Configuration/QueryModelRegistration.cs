@@ -26,6 +26,10 @@ public record QueryModelRegistration(
     bool AllowAnonymous = false
 )
 {
+    /// <summary>
+    /// Every <c>[TraxAuthorize]</c> on the entity, including those inherited from base classes and
+    /// interfaces. Never <c>null</c>: empty when the entity carries none.
+    /// </summary>
     public IReadOnlyList<TraxAuthorizeAttribute> AuthorizeAttributes { get; init; } =
         AuthorizeAttributes ?? Array.Empty<TraxAuthorizeAttribute>();
 }

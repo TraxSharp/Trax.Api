@@ -16,6 +16,7 @@ namespace Trax.Api.GraphQL.Filtering;
 /// </summary>
 public sealed class CaseInsensitiveStringFilterModule : ITraxFilterModule
 {
+    /// <inheritdoc/>
     public void Apply(IFilterConventionDescriptor descriptor)
     {
         descriptor.Operation(TraxFilterOperations.IContains).Name("icontains");

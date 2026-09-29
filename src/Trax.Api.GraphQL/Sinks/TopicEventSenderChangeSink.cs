@@ -16,6 +16,9 @@ public sealed class TopicEventSenderChangeSink : IChangeSignalSink
     private readonly ITopicEventSender _eventSender;
     private readonly TimeProvider _timeProvider;
 
+    /// <summary>Creates the sink. Registered by <c>AddTraxGraphQL</c>; not intended to be constructed directly.</summary>
+    /// <param name="eventSender">HotChocolate's subscription transport.</param>
+    /// <param name="timeProvider">Stamps each event's timestamp.</param>
     public TopicEventSenderChangeSink(ITopicEventSender eventSender, TimeProvider timeProvider)
     {
         _eventSender = eventSender;

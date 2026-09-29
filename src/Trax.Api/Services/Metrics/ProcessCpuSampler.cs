@@ -23,6 +23,7 @@ public sealed class ProcessCpuSampler
     private DateTime _prevAt;
     private bool _primed;
 
+    /// <summary>Creates a sampler that reads this process's total CPU time and the machine's logical core count.</summary>
     public ProcessCpuSampler()
         : this(
             () =>

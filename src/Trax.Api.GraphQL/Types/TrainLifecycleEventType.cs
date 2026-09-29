@@ -11,6 +11,7 @@ namespace Trax.Api.GraphQL.Types;
 /// </summary>
 public class TrainLifecycleEventType : ObjectType<TrainLifecycleEvent>
 {
+    /// <inheritdoc/>
     protected override void Configure(IObjectTypeDescriptor<TrainLifecycleEvent> descriptor)
     {
         descriptor.BindFieldsExplicitly();
