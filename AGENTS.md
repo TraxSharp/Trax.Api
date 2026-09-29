@@ -18,6 +18,7 @@ if your work contradicts one, say so rather than silently overriding it.
 | anything in an `AddTrax*` extension | [0002](./docs/adr/0002-reading-the-service-collection-is-order-dependent.md), before you read the `IServiceCollection` |
 | a new host-configuration surface | [0001](./docs/adr/0001-a-misconfigured-host-fails-at-startup.md), it needs a startup validator |
 | subscriptions or socket auth | both, in that order. This is where the silent failure happened |
+| the HTTP transport (GET, preflight headers, `ModifyServerOptions`) | [0024](./docs/adr/0024-graphql-get-is-off-unless-the-host-opts-in.md), GET is off unless the host opts in |
 | `queueTrain` or `requeueExecution` | central `docs/0017`, they enqueue through the mediator so per-train authorization applies; manifest triggers and dead-letter requeues are governed by the operations gate |
 | `failureClass` on executions, or the `executions(failureClass:)` filter | central `docs/0020`, a failure is classified where it happens |
 | `subjectKey` or `confirmedAt` on work queue reads | central `docs/0019` and `docs/0018` |

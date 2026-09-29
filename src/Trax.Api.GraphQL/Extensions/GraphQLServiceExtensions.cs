@@ -1,4 +1,5 @@
 using System.Reflection;
+using HotChocolate.AspNetCore;
 using HotChocolate.Data;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
@@ -524,6 +525,19 @@ public static class GraphQLServiceExtensions
                 return env?.IsDevelopment() != true;
             }
         );
+
+        // G8 — HTTP GET. Off unless the host opts in: a cross-site top-level navigation carries a
+        // SameSite=Lax cookie, so a GET-executable query could be run as the signed-in user from
+        // another site. An opted-in GET still needs the GraphQL-preflight header (a navigation
+        // cannot add one) and runs queries only. Set on the schema, so it holds however the host
+        // maps the endpoint. The IDE page and the SDL download are separate options.
+        // See docs/adr/0024-graphql-get-is-off-unless-the-host-opts-in.md.
+        graphqlBuilder.ModifyServerOptions(options =>
+        {
+            options.EnableGetRequests = config.GetRequestsAllowed;
+            options.EnforceGetRequestsPreflightHeader = true;
+            options.AllowedGetOperations = AllowedGetOperations.Query;
+        });
 
         // Recorded so TraxSubscriptionAuthWiringValidator can tell, once the container is
         // complete, whether a scheme was registered too late to be seen here.
