@@ -643,6 +643,15 @@ public static class GraphQLServiceExtensions
             graphqlBuilder.BridgeApplicationService<GraphQLConfiguration>();
             graphqlBuilder.AddHttpRequestInterceptor<TraxGraphQLAuthInterceptor>();
             services.AddHostedService<TraxGraphQLAuthPolicyValidator>();
+
+            // The same policy for every operation on every transport. HotChocolate's request
+            // pipeline is the one place an HTTP request and each operation a socket carries both
+            // pass through. See docs/adr/0009-the-endpoint-policy-applies-to-every-transport.md.
+            graphqlBuilder.UseRequest(
+                EndpointPolicyRequestMiddleware.Create,
+                key: EndpointPolicyRequestMiddleware.Key,
+                before: "DocumentCacheMiddleware"
+            );
         }
 
         // G6 — Per-request operation cap. Register as a document validator rule so
