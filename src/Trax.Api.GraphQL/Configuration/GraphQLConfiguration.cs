@@ -64,8 +64,8 @@ public class GraphQLConfiguration
 
     /// <summary>
     /// True when <c>RequireAuthorization()</c> was called on the builder.
-    /// Gates GraphQL execution (HTTP POST and GET-with-query); the BCP tool
-    /// page and schema introspection are governed independently.
+    /// Gates GraphQL execution (HTTP POST and GET-with-query); the schema download, the
+    /// GraphQL IDE and introspection follow <see cref="IntrospectionPredicate"/> instead.
     /// </summary>
     internal bool AuthorizationRequired { get; }
 

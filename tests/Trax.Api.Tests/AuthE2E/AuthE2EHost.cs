@@ -14,6 +14,7 @@ using Trax.Api.Auth.ApiKey;
 using Trax.Api.Auth.Jwt;
 using Trax.Api.Extensions;
 using Trax.Api.GraphQL.Extensions;
+using Trax.Api.Tests.Fakes;
 using Trax.Effect.Data.Extensions;
 using Trax.Effect.Data.Postgres.Extensions;
 using Trax.Effect.Extensions;
@@ -177,6 +178,9 @@ public static class AuthE2EHost
                                 // without needing an explicit override.
                                 .AddDbContext<TestDbContext>()
                                 .AddDbContext<AuthzTestDbContext>()
+                                // The host runs as Production, where introspection is off by
+                                // default; a few tests here read the schema through it.
+                                .AllowIntrospection(_ => true)
                                 // Registered by name rather than by scanning the test
                                 // assembly. A scan pulls in every [ExtendObjectType] any other
                                 // test file happens to declare, which is how unrelated fixtures
