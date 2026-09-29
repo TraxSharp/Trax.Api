@@ -22,10 +22,12 @@ namespace Trax.Api.GraphQL.Subscriptions;
 /// convention on GraphQL transport WS, <c>apiKey</c> matches the REST header):
 /// <code>{ "authToken": "..." }</code> or <code>{ "apiKey": "..." }</code>.
 /// <para>
-/// Registered automatically by <c>AddTraxApiKeyAuth</c> when the Trax GraphQL
-/// schema is also present. Hosts that prefer their own subscription-auth
-/// pipeline can remove this registration and wire their own
-/// <see cref="ISocketSessionInterceptor"/>.
+/// <c>AddTraxGraphQL</c> does not register this type itself: it registers
+/// <see cref="TraxCompositeSocketInterceptor"/>, which delegates API-key
+/// connections here whenever <c>AddTraxApiKeyAuth</c> is registered, alongside
+/// JWT or on its own. Hosts that prefer their own subscription-auth pipeline
+/// register their own <see cref="ISocketSessionInterceptor"/> through
+/// <c>ConfigureSchema</c>, which replaces the composite.
 /// </para>
 /// </remarks>
 public sealed class TraxApiKeySocketInterceptor(

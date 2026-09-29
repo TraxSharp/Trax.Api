@@ -19,8 +19,9 @@ namespace Trax.Api.GraphQL.Subscriptions;
 /// HotChocolate socket session interceptor that authenticates GraphQL
 /// subscriptions across multiple JWT schemes, routing by the token's <c>iss</c>
 /// claim through the same <c>AddTraxJwtDispatcher</c> mapping the HTTP path uses.
-/// Wired automatically by <c>AddTraxGraphQL</c> when a dispatcher is registered,
-/// replacing the single-scheme <see cref="TraxJwtSocketInterceptor"/>.
+/// <see cref="TraxCompositeSocketInterceptor"/> delegates JWT connections here when
+/// a dispatcher is registered, in place of the single-scheme
+/// <see cref="TraxJwtSocketInterceptor"/>.
 /// </summary>
 /// <remarks>
 /// The issuer is read from the token without validating its signature and is used
