@@ -38,8 +38,8 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 
 | Area | ADRs |
 | --- | --- |
-| `auth` | [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0024](./0024-graphql-get-is-off-unless-the-host-opts-in.md) |
-| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0013](./0013-persisted-operation-enforcement-runs-in-the-execution-pipeline.md), [0024](./0024-graphql-get-is-off-unless-the-host-opts-in.md) |
+| `auth` | [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0005](./0005-the-allowlist-keys-on-the-caller-supplied-operation-name.md), [0024](./0024-graphql-get-is-off-unless-the-host-opts-in.md) |
+| `graphql` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md), [0003](./0003-a-type-extension-field-declares-its-own-posture.md), [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md), [0005](./0005-the-allowlist-keys-on-the-caller-supplied-operation-name.md), [0013](./0013-persisted-operation-enforcement-runs-in-the-execution-pipeline.md), [0024](./0024-graphql-get-is-off-unless-the-host-opts-in.md) |
 | `platform` | [0001](./0001-a-misconfigured-host-fails-at-startup.md), [0002](./0002-reading-the-service-collection-is-order-dependent.md) |
 
 ## All of them
@@ -50,5 +50,6 @@ The format is `.claude/skills/recording-decisions/ADR-FORMAT.md`.
 | [0002](./0002-reading-the-service-collection-is-order-dependent.md) | Reading the service collection during registration is order-dependent | graphql, platform |
 | [0003](./0003-a-type-extension-field-declares-its-own-posture.md) | A type-extension field on an anonymous parent declares its own posture | graphql, auth |
 | [0004](./0004-the-operations-namespace-gates-independently-of-the-endpoint.md) | The operations namespace gates independently of the endpoint | graphql, auth |
+| [0005](./0005-the-allowlist-keys-on-the-caller-supplied-operation-name.md) | The persisted-operations allowlist keys on the caller-supplied operation name | graphql, auth |
 | [0013](./0013-persisted-operation-enforcement-runs-in-the-execution-pipeline.md) | Persisted-operation enforcement runs in the execution pipeline | graphql |
 | [0024](./0024-graphql-get-is-off-unless-the-host-opts-in.md) | GraphQL GET is off unless the host opts in | graphql, auth |
