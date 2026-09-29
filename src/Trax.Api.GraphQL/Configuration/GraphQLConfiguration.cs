@@ -119,6 +119,8 @@ public class GraphQLConfiguration
     /// <c>docs/adr/0024-graphql-get-is-off-unless-the-host-opts-in.md</c>.
     /// </summary>
     internal bool GetRequestsAllowed { get; init; }
+
+    /// <summary>
     /// Origins set through <c>TraxGraphQLBuilder.AllowSocketOrigins()</c>, normalized, or
     /// <c>null</c> when the host's CORS default policy decides which origins may open a socket.
     /// </summary>
