@@ -116,7 +116,7 @@ internal sealed class PersistedOperationsMiddleware
         if (ManagementOperationDetector.IsManagementOperation(document))
             return Decision.PassThrough;
 
-        if (_options.AllowIntrospection && IsIntrospection(parsed, document))
+        if (_options.AllowIntrospection && IsIntrospection(document))
             return Decision.PassThrough;
 
         if (!_options.RequirePersisted)
@@ -141,9 +141,8 @@ internal sealed class PersistedOperationsMiddleware
             || contentType.StartsWith("application/graphql", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsIntrospection(GraphQLRequestShape req, DocumentNode? document) =>
-        IntrospectionDetector.LooksLikeIntrospectionByName(req.OperationName)
-        || IntrospectionDetector.IsPureIntrospection(document);
+    private static bool IsIntrospection(DocumentNode? document) =>
+        IntrospectionDetector.IsPureIntrospection(document);
 
     /// <summary>
     /// Parses a GraphQL HTTP body. Returns a list of one entry for a

@@ -44,9 +44,9 @@ public sealed class PersistedOperationsOptions
         Array.Empty<Func<string, bool>>();
 
     /// <summary>
-    /// When true, requests that look like introspection (operation name
-    /// <c>IntrospectionQuery</c>, or a query body whose top-level selection
-    /// set is purely <c>__schema</c> / <c>__type</c>) bypass enforcement.
+    /// When true, requests whose document selects only introspection fields
+    /// (<c>__schema</c>, <c>__type</c>, <c>__typename</c>) at the top level bypass
+    /// enforcement. Introspection is recognised from the parsed document alone.
     /// Default is true; consumers wanting strict prod can opt out via
     /// <c>DisableIntrospection()</c>.
     /// </summary>
