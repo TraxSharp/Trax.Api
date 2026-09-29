@@ -273,7 +273,7 @@ public class TraxJwtSocketInterceptorTests
         http.User.Should().NotBeNull();
         http.User.Identity!.IsAuthenticated.Should().BeTrue();
         http.User.Identity.AuthenticationType.Should().Be(JwtDefaults.SchemeName);
-        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("alice");
+        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("TraxJwt:alice");
         http.User.IsInRole("Player").Should().BeTrue();
     }
 
@@ -292,7 +292,7 @@ public class TraxJwtSocketInterceptorTests
         var result = await interceptor.OnConnectAsync(session, payload, CancellationToken.None);
 
         result.Accepted.Should().BeTrue();
-        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("alice");
+        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("TraxJwt:alice");
     }
 
     [Test]
@@ -334,7 +334,9 @@ public class TraxJwtSocketInterceptorTests
         var payload = Payload(new TraxJwtSocketInterceptor.ConnectionInitPayload(token, null));
         await interceptor.OnConnectAsync(session, payload, CancellationToken.None);
 
-        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("override-id");
+        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!
+            .Value.Should()
+            .Be("TraxJwt:override-id");
         http.User.IsInRole("Admin").Should().BeTrue();
     }
 

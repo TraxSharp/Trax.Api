@@ -65,7 +65,7 @@ public class TraxJwtSocketInterceptorJwksTests
 
         result.Accepted.Should().BeTrue();
         http.User.Identity!.IsAuthenticated.Should().BeTrue();
-        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("alice");
+        http.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("TraxJwt:alice");
         http.User.IsInRole("Player").Should().BeTrue();
     }
 

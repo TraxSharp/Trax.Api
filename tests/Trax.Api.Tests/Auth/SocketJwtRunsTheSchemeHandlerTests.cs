@@ -115,7 +115,10 @@ public class SocketJwtRunsTheSchemeHandlerTests
             Tokens.Mint(b => b.WithSubject("alice"))
         );
         accepted.Accepted.Should().BeTrue();
-        aliceHttp.User.FindFirst(TraxAuthClaimTypes.PrincipalId)!.Value.Should().Be("alice");
+        aliceHttp
+            .User.FindFirst(TraxAuthClaimTypes.PrincipalId)!
+            .Value.Should()
+            .Be("TraxJwt:alice");
         aliceHttp.User.Identity!.AuthenticationType.Should().Be(JwtDefaults.SchemeName);
     }
 
