@@ -452,6 +452,11 @@ public static class GraphQLServiceExtensions
     /// on this endpoint follow the same per-request decision as introspection: allowed in
     /// Development, refused with 404 elsewhere, unless <c>AllowIntrospection(predicate)</c> says
     /// otherwise.
+    /// A WebSocket upgrade to this endpoint that carries an <c>Origin</c> header is accepted only
+    /// when the origin is on the endpoint's own host or is allowed, and is refused with
+    /// <c>403</c> otherwise. The allowed origins are set with
+    /// <c>TraxGraphQLBuilder.AllowSocketOrigins(...)</c>, and default to the host's CORS default
+    /// policy. An upgrade with no <c>Origin</c> header is accepted.
     /// </remarks>
     /// <example>
     /// <code>
@@ -475,6 +480,34 @@ public static class GraphQLServiceExtensions
             new PathString(routePrefix.TrimEnd('/')),
             app.Services.GetRequiredService<IntrospectionPolicy>()
         );
+
+        // A browser socket is accepted only from origins the host serves: the endpoint's own
+        // host, or the allowed origins. The check wraps the endpoint's handler, so it runs
+        // before HotChocolate accepts the upgrade. See
+        // docs/adr/0007-a-browser-socket-is-accepted-only-from-origins-the-host-serves.md.
+        var allowedOrigins = app.Services.GetService<GraphQLConfiguration>()?.SocketAllowedOrigins;
+        endpoint.Add(endpointBuilder =>
+        {
+            var handler =
+                endpointBuilder.RequestDelegate
+                ?? throw new InvalidOperationException(
+                    "The Trax GraphQL endpoint has no request handler to guard."
+                );
+            endpointBuilder.RequestDelegate = context =>
+            {
+                if (
+                    context.WebSockets.IsWebSocketRequest
+                    && !SocketOriginPolicy.IsAllowed(context, allowedOrigins)
+                )
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                }
+
+                return handler(context);
+            };
+        });
+
         configure?.Invoke(endpoint);
         return app;
     }
@@ -572,6 +605,13 @@ public static class GraphQLServiceExtensions
         // Recorded so TraxSubscriptionAuthWiringValidator can tell, once the container is
         // complete, whether a scheme was registered too late to be seen here.
         var wiredSocketInterceptors = new List<string>();
+
+        // G4 — Socket origins. A WebSocket upgrade is accepted only from origins the host
+        // serves. The listener is on the Trax schema, so it sees every socket that schema serves
+        // however the host mapped it, and no socket for another schema. UseTraxGraphQL() also
+        // refuses before HotChocolate runs. See
+        // docs/adr/0007-a-browser-socket-is-accepted-only-from-origins-the-host-serves.md.
+        graphqlBuilder.AddDiagnosticEventListener<SocketOriginListener>();
 
         // G5 — Subscription auth interceptors. Browsers cannot attach headers to
         // WebSocket upgrades, so each auth scheme registers an interceptor that

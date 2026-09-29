@@ -88,6 +88,7 @@ public partial class TraxGraphQLBuilder
         )
         {
             GetRequestsAllowed = GetRequestsAllowed,
+            SocketAllowedOrigins = SocketAllowedOrigins,
         };
     }
 
