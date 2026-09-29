@@ -31,14 +31,18 @@ public sealed class PersistedOperationsOptions
     public bool LogNonPersistedRequests { get; internal set; }
 
     /// <summary>
-    /// Operation names that bypass enforcement unconditionally. Case-sensitive.
+    /// Operation names that bypass enforcement unconditionally. Case-sensitive. Matched against
+    /// the <c>operationName</c> the caller supplies, not against the document, so this is a
+    /// convenience for trusted networks rather than a security control.
     /// </summary>
     public IReadOnlySet<string> AllowedOperationNames { get; internal set; } =
         new HashSet<string>(StringComparer.Ordinal);
 
     /// <summary>
     /// Predicates evaluated against the operation name (or, when no name is
-    /// available, the document id). Any matching predicate bypasses enforcement.
+    /// available, the document id). Any matching predicate bypasses enforcement. Both keys are
+    /// supplied by the caller, so this is a convenience for trusted networks rather than a
+    /// security control.
     /// </summary>
     public IReadOnlyList<Func<string, bool>> AllowOperationPredicates { get; internal set; } =
         Array.Empty<Func<string, bool>>();
