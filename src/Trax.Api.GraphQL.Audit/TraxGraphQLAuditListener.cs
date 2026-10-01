@@ -173,7 +173,7 @@ public sealed class TraxGraphQLAuditListener(
     /// </summary>
     private string CaptureDocument(RequestContext context)
     {
-        var document = context.OperationDocumentInfo.Document?.ToString() ?? string.Empty;
+        var document = RequestDocument(context)?.ToString() ?? string.Empty;
         if (document.Length <= _options.MaxDocumentLength)
             return document;
 
@@ -188,6 +188,15 @@ public sealed class TraxGraphQLAuditListener(
             "]"
         );
     }
+
+    /// <summary>
+    /// The document the pipeline resolved, or, for a request refused before the pipeline looked
+    /// it up (the endpoint policy refuses ahead of the document cache), the document the transport
+    /// already parsed. A request that arrived as unparsed text and was refused that early has none.
+    /// </summary>
+    private static DocumentNode? RequestDocument(RequestContext context) =>
+        context.OperationDocumentInfo.Document
+        ?? (context.Request.Document as OperationDocument)?.Document;
 
     private const string TruncatedMarker = "...[truncated]";
     private const string ExecutedFieldsMarker = " [selected fields: ";
