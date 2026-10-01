@@ -124,9 +124,8 @@ public static class GraphQLServiceExtensions
 
         // Detect train queries/mutations registered before us so we can decide whether
         // RootQuery / RootMutation will have any fields by the time HotChocolate builds
-        // the schema. Trains registered AFTER AddTraxGraphQL won't be picked up here —
-        // the established pattern is `AddTrax(...).AddTraxGraphQL(...)` with all train
-        // registrations completed inside or before AddTrax.
+        // the schema. A train registered AFTER AddTraxGraphQL is not seen here, and
+        // TrainRegistrationOrderValidator refuses the host naming it.
         // Honor a pre-registered ITrainDiscoveryService when present (test setups
         // substitute a mock), otherwise scan the live ServiceCollection ourselves.
         var trainRegistrations = ResolveTrainDiscoveryService(services).DiscoverTrains();
@@ -137,6 +136,14 @@ public static class GraphQLServiceExtensions
         // its authorization posture. Runs against the same rule as the query-model side.
         ValidateTrainExposureAuthorization(trainRegistrations, config.AuthorizationRequired);
         TrainTypeModule.AssignTrainNames(trainRegistrations);
+
+        // A train registered after this call skipped the checks above. Refuse the host, naming it,
+        // rather than leave its field silently missing.
+        var seenTrains = trainRegistrations.Select(r => r.ServiceType).ToHashSet();
+        services.AddHostedService(sp => new TrainRegistrationOrderValidator(
+            seenTrains,
+            sp.GetRequiredService<ITrainDiscoveryService>()
+        ));
 
         services.AddTraxApi();
         services.AddSingleton<TrainTypeModule>();
