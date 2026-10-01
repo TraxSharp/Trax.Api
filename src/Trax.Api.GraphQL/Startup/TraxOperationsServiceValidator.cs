@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Trax.Api.Auth;
 using Trax.Mediator.Services.TrainExecution;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
@@ -19,9 +20,9 @@ namespace Trax.Api.GraphQL.Startup;
 internal sealed class TraxOperationsServiceValidator(
     IServiceProviderIsService isService,
     bool mutationsExposed
-) : IHostedService
+) : StartupGate
 {
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override Task CheckAsync(CancellationToken cancellationToken)
     {
         if (!isService.IsService(typeof(IOperationsService)))
             throw new InvalidOperationException(
@@ -55,6 +56,4 @@ internal sealed class TraxOperationsServiceValidator(
 
         return Task.CompletedTask;
     }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

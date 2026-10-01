@@ -124,9 +124,8 @@ public static class GraphQLServiceExtensions
 
         // Detect train queries/mutations registered before us so we can decide whether
         // RootQuery / RootMutation will have any fields by the time HotChocolate builds
-        // the schema. Trains registered AFTER AddTraxGraphQL won't be picked up here —
-        // the established pattern is `AddTrax(...).AddTraxGraphQL(...)` with all train
-        // registrations completed inside or before AddTrax.
+        // the schema. A train registered AFTER AddTraxGraphQL is not seen here, and
+        // TrainRegistrationOrderValidator refuses the host naming it.
         // Honor a pre-registered ITrainDiscoveryService when present (test setups
         // substitute a mock), otherwise scan the live ServiceCollection ourselves.
         var trainRegistrations = ResolveTrainDiscoveryService(services).DiscoverTrains();
@@ -136,6 +135,15 @@ public static class GraphQLServiceExtensions
         // Fail fast (before any HotChocolate wiring) when an exposed train has not declared
         // its authorization posture. Runs against the same rule as the query-model side.
         ValidateTrainExposureAuthorization(trainRegistrations, config.AuthorizationRequired);
+        TrainTypeModule.AssignTrainNames(trainRegistrations);
+
+        // A train registered after this call skipped the checks above. Refuse the host, naming it,
+        // rather than leave its field silently missing.
+        var seenTrains = trainRegistrations.Select(r => r.ServiceType).ToHashSet();
+        services.AddHostedService(sp => new TrainRegistrationOrderValidator(
+            seenTrains,
+            sp.GetRequiredService<ITrainDiscoveryService>()
+        ));
 
         services.AddTraxApi();
         services.AddSingleton<TrainTypeModule>();
@@ -218,7 +226,8 @@ public static class GraphQLServiceExtensions
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootQuery");
-                    var operations = d.Field("operations")
+                    var operations = NamespaceField
+                        .Mark(d.Field("operations"))
                         .Type<ObjectType<OperationsQueries>>()
                         .Resolve(_ => new OperationsQueries());
                     AuthorizeDirectives.Apply(operations, config.OperationsAuthorizeAttributes);
@@ -237,7 +246,8 @@ public static class GraphQLServiceExtensions
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootMutation");
-                    var operations = d.Field("operations")
+                    var operations = NamespaceField
+                        .Mark(d.Field("operations"))
                         .Type<ObjectType<OperationsMutations>>()
                         .Resolve(_ => new OperationsMutations());
                     AuthorizeDirectives.Apply(operations, config.OperationsAuthorizeAttributes);
@@ -313,7 +323,8 @@ public static class GraphQLServiceExtensions
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootQuery");
-                    d.Field("discover")
+                    NamespaceField
+                        .Mark(d.Field("discover"))
                         .Type<ObjectType<DiscoverQueries>>()
                         .Resolve(_ => new DiscoverQueries());
                 })
@@ -693,13 +704,11 @@ public static class GraphQLServiceExtensions
             );
         }
 
-        // G6 — Per-request operation cap. Register as a document validator rule so
-        // the rejection happens during validation, before any resolver runs.
-        graphqlBuilder.ConfigureSchemaServices(sc =>
-            sc.AddSingleton<IDocumentValidatorRule>(
-                new OperationCountValidatorRule(config.MaxOperationsPerRequest)
-            )
-        );
+        // G6 — Per-request operation cap. Registered through HotChocolate's validation
+        // builder so the rejection happens during validation, before any resolver runs. (A rule
+        // added to the schema services is never picked up by the document validator.)
+        var maxOperations = config.MaxOperationsPerRequest;
+        graphqlBuilder.AddValidationRule((_, _) => new OperationCountValidatorRule(maxOperations));
     }
 
     /// <summary>

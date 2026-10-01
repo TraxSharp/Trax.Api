@@ -89,12 +89,14 @@ public partial class TraxGraphQLBuilder
     }
 
     /// <summary>
-    /// Caps the number of top-level selections in a single GraphQL request
-    /// (aliased fields + batched operations both count, and selections inside
-    /// fragment spreads or inline fragments count as if written in place).
-    /// Default is <c>50</c>.
-    /// Rejects amplification attacks that submit hundreds of aliased train
-    /// invocations in a single HTTP request.
+    /// Caps the number of operations a single GraphQL request invokes. Default is <c>50</c>.
+    /// An operation is a root field or a field under a namespace (<c>dispatch</c>,
+    /// <c>discover</c>, <c>operations</c>, a nested namespace such as
+    /// <c>operations { deadLetters }</c>, or a train's declared <c>Namespace</c>); the namespace
+    /// field itself is not counted. Aliases and batched operations both count, selections inside
+    /// fragment spreads or inline fragments count as if written in place, and selections sharing
+    /// a response path count once. A request over the cap is refused during validation with
+    /// <c>TRAX_TOO_MANY_OPERATIONS</c>, before any resolver runs.
     /// </summary>
     public TraxGraphQLBuilder MaxOperationsPerRequest(int maxOperations)
     {

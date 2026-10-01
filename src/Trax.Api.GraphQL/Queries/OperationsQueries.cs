@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Trax.Api.DTOs;
+using Trax.Api.GraphQL.Validation;
 using Trax.Api.Services.HealthCheck;
 using Trax.Core.Exceptions;
 using Trax.Effect.Configuration.TraxEffectConfiguration;
@@ -24,33 +25,39 @@ public class OperationsQueries
     /// <summary>
     /// Nested namespace exposing dead letter queries (<c>deadLetters</c>, <c>deadLetter</c>).
     /// </summary>
+    [NamespaceField]
     public DeadLetterQueries DeadLetters() => new();
 
     /// <summary>
     /// Nested namespace exposing work queue queries (<c>workQueues</c>, <c>workQueue</c>).
     /// </summary>
+    [NamespaceField]
     public WorkQueueQueries WorkQueue() => new();
 
     /// <summary>
     /// Nested namespace exposing manifest group queries (<c>graph</c>).
     /// </summary>
+    [NamespaceField]
     public ManifestGroupQueries ManifestGroups() => new();
 
     /// <summary>
     /// Nested namespace exposing log queries (paginated reads of the log records trains write).
     /// </summary>
+    [NamespaceField]
     public LogQueries Logs() => new();
 
     /// <summary>
     /// Nested namespace exposing dashboard / server metrics. Same data the dashboard
     /// Index page renders.
     /// </summary>
+    [NamespaceField]
     public MetricsQueries Metrics() => new();
 
     /// <summary>
     /// Nested namespace exposing live scheduler runtime config (what the dashboard's
     /// ServerSettingsPage reads).
     /// </summary>
+    [NamespaceField]
     public ConfigQueries Config() => new();
 
     /// <summary>

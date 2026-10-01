@@ -39,13 +39,6 @@ public class GraphQLConfiguration
     internal IReadOnlyList<Action<IRequestExecutorBuilder>> SchemaConfigurations { get; }
 
     /// <summary>
-    /// Tracks which namespace base types and namespace fields have been registered
-    /// across type modules to prevent duplicate registrations. Populated at runtime
-    /// by <c>TrainTypeModule</c> and <c>QueryModelTypeModule</c>.
-    /// </summary>
-    internal HashSet<string> RegisteredNamespaceTypes { get; } = new(StringComparer.Ordinal);
-
-    /// <summary>
     /// Max GraphQL execution depth (default 15). Queries deeper than this are rejected
     /// during validation.
     /// </summary>
