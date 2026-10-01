@@ -188,7 +188,26 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
             );
 
             if (violation is ExposureViolation.None)
+            {
+                // The census accepted a [TraxAuthorize] field on the strength of the gate Phase 1
+                // emits, so the gate has to be there. Asserting it keeps the two phases from
+                // reading different members again.
+                if (
+                    declaration.HasAuthorize
+                    && !declaration.AllowAnonymous
+                    && !field.Directives.Any(d => d.Value is AuthorizeDirective)
+                )
+                    _report.Add(
+                        new TypeExtensionExposureViolation(
+                            fieldPath,
+                            $"GraphQL field '{fieldPath}' ({resolver}) declares [TraxAuthorize], "
+                                + "but no @authorize directive was emitted for it, so the field "
+                                + "would be served ungated. This is a defect in Trax, not in the "
+                                + "host: report it."
+                        )
+                    );
                 continue;
+            }
 
             _report.Add(
                 new TypeExtensionExposureViolation(
@@ -279,12 +298,15 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
     }
 
     /// <summary>
-    /// The resolver behind a field, when it is a method Trax can read attributes off. A field with
+    /// The member behind a field, method or property, that Trax reads a posture off. A property
+    /// carries no attribute of its own (<c>[TraxAuthorize]</c> does not apply to one), but a field
+    /// HotChocolate builds from an extension class's property takes the class-level posture
+    /// exactly as a method does, so emission and the census read the same members. A field with
     /// no member is a resolver built inline (Trax's own <c>discover</c> and <c>operations</c>
     /// entry fields are built this way), which has no declaration site for an attribute.
     /// </summary>
-    private static MethodInfo? Resolver(ObjectFieldConfiguration field) =>
-        (field.ResolverMember ?? field.Member) as MethodInfo;
+    private static MemberInfo? Resolver(ObjectFieldConfiguration field) =>
+        field.ResolverMember ?? field.Member;
 
     /// <summary>
     /// The CLR member behind a field that a type extension contributed, or <c>null</c> when the
