@@ -92,9 +92,8 @@ public sealed class CrossSchemaGuardFixtureSelfTest : CrossSchemaGuardFixture
             }
         }
 
-        Assert.That(failure, Is.Not.Null, "an empty scan must not pass");
-        Assert.That(failure!.Message, Does.Contain("[src]"));
-        Assert.That(failure.Message, Does.Contain(nameof(ExpectsCrossSchemaResolvers)));
+        failure.Should().NotBeNull("an empty scan must not pass");
+        failure!.Message.Should().Contain("[src]").And.Contain(nameof(ExpectsCrossSchemaResolvers));
     }
 
     [Test]
