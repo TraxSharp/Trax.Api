@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Trax.Api.DTOs;
+using Trax.Api.GraphQL.Validation;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.ChangeSignal;
@@ -17,21 +18,25 @@ public class OperationsMutations
     /// <summary>
     /// Nested namespace exposing dead letter mutations (requeue, acknowledge, batch ops).
     /// </summary>
+    [NamespaceField]
     public DeadLetterMutations DeadLetters() => new();
 
     /// <summary>
     /// Nested namespace exposing work queue mutations (queue a train, cancel queued entries).
     /// </summary>
+    [NamespaceField]
     public WorkQueueMutations WorkQueue() => new();
 
     /// <summary>
     /// Nested namespace exposing manifest group mutations (<c>updateManifestGroup</c>).
     /// </summary>
+    [NamespaceField]
     public ManifestGroupMutations ManifestGroups() => new();
 
     /// <summary>
     /// Nested namespace exposing scheduler config mutations (<c>updateScheduler</c>).
     /// </summary>
+    [NamespaceField]
     public ConfigMutations Config() => new();
 
     /// <summary>

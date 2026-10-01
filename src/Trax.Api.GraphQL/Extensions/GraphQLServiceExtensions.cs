@@ -218,7 +218,8 @@ public static class GraphQLServiceExtensions
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootQuery");
-                    var operations = d.Field("operations")
+                    var operations = NamespaceField
+                        .Mark(d.Field("operations"))
                         .Type<ObjectType<OperationsQueries>>()
                         .Resolve(_ => new OperationsQueries());
                     AuthorizeDirectives.Apply(operations, config.OperationsAuthorizeAttributes);
@@ -237,7 +238,8 @@ public static class GraphQLServiceExtensions
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootMutation");
-                    var operations = d.Field("operations")
+                    var operations = NamespaceField
+                        .Mark(d.Field("operations"))
                         .Type<ObjectType<OperationsMutations>>()
                         .Resolve(_ => new OperationsMutations());
                     AuthorizeDirectives.Apply(operations, config.OperationsAuthorizeAttributes);
@@ -313,7 +315,8 @@ public static class GraphQLServiceExtensions
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootQuery");
-                    d.Field("discover")
+                    NamespaceField
+                        .Mark(d.Field("discover"))
                         .Type<ObjectType<DiscoverQueries>>()
                         .Resolve(_ => new DiscoverQueries());
                 })
@@ -693,13 +696,11 @@ public static class GraphQLServiceExtensions
             );
         }
 
-        // G6 — Per-request operation cap. Register as a document validator rule so
-        // the rejection happens during validation, before any resolver runs.
-        graphqlBuilder.ConfigureSchemaServices(sc =>
-            sc.AddSingleton<IDocumentValidatorRule>(
-                new OperationCountValidatorRule(config.MaxOperationsPerRequest)
-            )
-        );
+        // G6 — Per-request operation cap. Registered through HotChocolate's validation
+        // builder so the rejection happens during validation, before any resolver runs. (A rule
+        // added to the schema services is never picked up by the document validator.)
+        var maxOperations = config.MaxOperationsPerRequest;
+        graphqlBuilder.AddValidationRule((_, _) => new OperationCountValidatorRule(maxOperations));
     }
 
     /// <summary>

@@ -5,6 +5,7 @@ using HotChocolate.Types.Descriptors;
 using Trax.Api.GraphQL.Configuration;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Queries;
+using Trax.Api.GraphQL.Validation;
 using Trax.Effect.Attributes;
 using Trax.Mediator.Services.TrainDiscovery;
 using Trax.Mediator.Services.TrainExecution;
@@ -137,7 +138,8 @@ public partial class TrainTypeModule(
                 new ObjectTypeExtension(d =>
                 {
                     d.Name("RootMutation");
-                    d.Field("dispatch")
+                    NamespaceField
+                        .Mark(d.Field("dispatch"))
                         .Type<ObjectType<DispatchMutations>>()
                         .Resolve(_ => new DispatchMutations());
                 })
@@ -160,7 +162,8 @@ public partial class TrainTypeModule(
                     new ObjectTypeExtension(d =>
                     {
                         d.Name("RootQuery");
-                        d.Field("discover")
+                        NamespaceField
+                            .Mark(d.Field("discover"))
                             .Type<ObjectType<DiscoverQueries>>()
                             .Resolve(_ => new DiscoverQueries());
                     })
