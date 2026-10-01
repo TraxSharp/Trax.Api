@@ -252,15 +252,19 @@ public static class GraphQLServiceExtensions
         // resolves IAuthenticationSchemeProvider, which a host that never called AddAuthentication()
         // does not have.
         //
-        // Three things can put one in the schema: a [TraxAuthorize] query model, an operations
-        // gate (GateOperations(...) or GateOperationsToAuthenticatedUsers()), and [TraxAuthorize] or [TraxAllowAnonymous] on a
-        // type-extension resolver, which is what TypeExtensionExposureInterceptor requires of a
-        // field that inherits no gate and turns into an @authorize directive.
+        // These can put one in the schema: a [TraxAuthorize] query model or navigation target,
+        // an operations gate (GateOperations(...) or GateOperationsToAuthenticatedUsers()),
+        // [TraxAuthorize] or [TraxAllowAnonymous] on a type-extension resolver, which is what
+        // TypeExtensionExposureInterceptor requires of a field that inherits no gate and turns
+        // into an @authorize directive, and any consumer type module.
         var authorizationInSchema =
             config.ModelRegistrations.Any(r => r.AuthorizeAttributes.Count > 0)
             || config.NavigationTargets.Any(t => t.IsGated)
             || config.OperationsAuthorizeAttributes.Count > 0
-            || AnyTypeExtensionDeclaresPosture(config.AdditionalTypeExtensions);
+            || AnyTypeExtensionDeclaresPosture(config.AdditionalTypeExtensions)
+            // A type module builds its types at schema construction, so what it contributes
+            // cannot be inspected here; any module may carry a [TraxAuthorize] resolver.
+            || config.AdditionalTypeModules.Count > 0;
 
         if (authorizationInSchema)
         {
@@ -404,10 +408,16 @@ public static class GraphQLServiceExtensions
         }
 
         // The exposure census for type-extension fields. Registered whenever a type extension
-        // could exist: through Trax's own AddTypeExtension(s), or through a ConfigureSchema
-        // callback, which has full builder access and can add one Trax never sees. A host with
-        // neither cannot have a type-extension field, and pays nothing.
-        if (config.AdditionalTypeExtensions.Count > 0 || config.SchemaConfigurations.Count > 0)
+        // could exist: through Trax's own AddTypeExtension(s), through a consumer type module
+        // (AddTypeModule<T>()), which can contribute an ObjectTypeExtension, or through a
+        // ConfigureSchema callback, which has full builder access and can add one Trax never
+        // sees. A host with none of the three cannot have a type-extension field, and pays
+        // nothing.
+        if (
+            config.AdditionalTypeExtensions.Count > 0
+            || config.AdditionalTypeModules.Count > 0
+            || config.SchemaConfigurations.Count > 0
+        )
         {
             var exposureReport = new TypeExtensionExposureReport();
             services.AddSingleton(exposureReport);
