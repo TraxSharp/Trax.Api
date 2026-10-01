@@ -345,17 +345,21 @@ public class OperationsQueries
     /// <summary>
     /// Full detail for one manifest, including the train input it runs with. The input is on this
     /// single-row read only, never on the <c>manifests</c> list, the way an execution's input is on
-    /// <c>executionDetail</c> alone. Returns <c>null</c> when the manifest does not exist.
+    /// <c>executionDetail</c> alone. The manifest keeps it unmasked because its runs start from it;
+    /// here each <c>[TraxSensitive]</c> member reads <c>{"_redacted": true}</c>, and an input this
+    /// host cannot read as its type is masked whole. Returns <c>null</c> when the manifest does
+    /// not exist.
     /// </summary>
     public async Task<ManifestDetail?> GetManifestDetail(
         long id,
         [Service] IDataContextProviderFactory dataContextFactory,
+        [Service] ITrainDiscoveryService discovery,
         CancellationToken ct
     )
     {
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
 
-        return await db
+        var detail = await db
             .Manifests.AsNoTracking()
             .Where(m => m.Id == id)
             .Select(m => new ManifestDetail(
@@ -382,6 +386,17 @@ public class OperationsQueries
                 m.VarianceSeconds
             ))
             .FirstOrDefaultAsync(ct);
+
+        return detail is null
+            ? null
+            : detail with
+            {
+                Properties = TransportInputRedaction.Redact(
+                    discovery,
+                    detail.Properties,
+                    detail.PropertyTypeName
+                ),
+            };
     }
 
     /// <summary>

@@ -52,6 +52,9 @@ public class OperationsQueriesTests
     private ServiceProvider _provider = null!;
     private IDataContextProviderFactory _factory = null!;
 
+    // No train is registered, so a stored input can't be read as its type and shows masked.
+    private static ITrainDiscoveryService Discovery => Substitute.For<ITrainDiscoveryService>();
+
     private IOperationsService Operations =>
         new OperationsService(
             Substitute.For<ITrainDiscoveryService>(),
@@ -1682,14 +1685,21 @@ public class OperationsQueriesTests
             id = m.Id;
         }
 
-        var detail = await new OperationsQueries().GetManifestDetail(id, _factory, default);
+        var detail = await new OperationsQueries().GetManifestDetail(
+            id,
+            _factory,
+            Discovery,
+            default
+        );
 
         detail.Should().NotBeNull();
         detail!.Id.Should().Be(id);
         detail.ManifestGroupId.Should().Be(groupId);
         detail.ManifestGroupName.Should().Be("detail-group");
         detail.PropertyTypeName.Should().Be("Trax.X.BillingInput");
-        detail.Properties.Should().Contain("acct-1");
+        // No train on this host takes Trax.X.BillingInput, so nothing shows the stored properties
+        // hold no [TraxSensitive] member: the read masks them whole.
+        detail.Properties.Should().Contain("_redacted").And.NotContain("acct-1");
         detail.MisfirePolicy.Should().Be(MisfirePolicy.DoNothing);
         detail.MisfireThresholdSeconds.Should().Be(90);
         detail.VarianceSeconds.Should().Be(30);
@@ -1699,7 +1709,7 @@ public class OperationsQueriesTests
     [Test]
     public async Task GetManifestDetail_MissingId_ReturnsNull()
     {
-        (await new OperationsQueries().GetManifestDetail(99999, _factory, default))
+        (await new OperationsQueries().GetManifestDetail(99999, _factory, Discovery, default))
             .Should()
             .BeNull();
     }

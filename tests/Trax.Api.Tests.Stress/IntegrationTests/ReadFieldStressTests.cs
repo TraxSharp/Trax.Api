@@ -9,6 +9,7 @@ using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Data.Services.SqlDialect;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.EffectRegistry;
+using Trax.Mediator.Services.TrainDiscovery;
 
 namespace Trax.Api.Tests.Stress.IntegrationTests;
 
@@ -37,6 +38,9 @@ public class ReadFieldStressTests : StressTestSetup
 
     private static IDataContextProviderFactory Factory(IServiceProvider sp) =>
         sp.GetRequiredService<IDataContextProviderFactory>();
+
+    private static ITrainDiscoveryService Discovery(IServiceProvider sp) =>
+        sp.GetRequiredService<ITrainDiscoveryService>();
 
     // What HotChocolate injects into the list resolvers: the provider's dialect, whose row
     // estimate stands in for an exact count of an unfiltered table.
@@ -147,6 +151,7 @@ public class ReadFieldStressTests : StressTestSetup
                 var detail = await new OperationsQueries().GetManifestDetail(
                     Profile.Manifests / 2,
                     Factory(sp),
+                    Discovery(sp),
                     ct
                 );
                 detail.Should().NotBeNull();
@@ -166,7 +171,12 @@ public class ReadFieldStressTests : StressTestSetup
             {
                 if (id == 0)
                     id = await QueuedEntryFor(sp, "subject-7", ct);
-                var detail = await new WorkQueueQueries().GetDetail(id, Factory(sp), ct);
+                var detail = await new WorkQueueQueries().GetDetail(
+                    id,
+                    Factory(sp),
+                    Discovery(sp),
+                    ct
+                );
                 detail.Should().NotBeNull();
                 detail!.SubjectKey.Should().Be("subject-7");
             }
@@ -203,7 +213,12 @@ public class ReadFieldStressTests : StressTestSetup
                     await db.SaveChanges(ct);
                     id = entry.Id;
                 }
-                var detail = await new WorkQueueQueries().GetDetail(id, Factory(sp), ct);
+                var detail = await new WorkQueueQueries().GetDetail(
+                    id,
+                    Factory(sp),
+                    Discovery(sp),
+                    ct
+                );
                 detail!.SubjectQueuedBehind.Should().BeNull();
                 detail.SubjectHeldBy.Should().BeNull();
             }
@@ -221,6 +236,7 @@ public class ReadFieldStressTests : StressTestSetup
                 var detail = await new WorkQueueQueries().GetDetail(
                     Profile.WorkQueue / 2,
                     Factory(sp),
+                    Discovery(sp),
                     ct
                 );
                 detail.Should().NotBeNull();

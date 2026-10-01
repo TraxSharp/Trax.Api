@@ -3,6 +3,7 @@ using Trax.Api.DTOs;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.ChangeSignal;
+using Trax.Effect.Utils;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
@@ -195,7 +196,8 @@ public class OperationsMutations
     /// <summary>
     /// Re-queues an execution: queues a fresh run of the same train with the input the execution
     /// recorded, mirroring the dashboard's Re-queue action. Fails without queueing when the
-    /// execution does not exist, recorded no input, or recorded only a truncated placeholder.
+    /// execution does not exist, recorded no input, recorded only a truncated placeholder, or
+    /// recorded an input with <c>[TraxSensitive]</c> members masked.
     /// </summary>
     public async Task<OperationResponse> RequeueExecution(
         long id,
@@ -231,6 +233,15 @@ public class OperationsMutations
                 false,
                 Message: $"Execution {id}'s input was too large to save in full, so it cannot be "
                     + "re-queued with what it ran with."
+            );
+
+        // A [TraxSensitive] member is recorded as {"_redacted": true}, not as its value, so the
+        // run cannot be re-queued with what it ran with.
+        if (TraxRedaction.ContainsRedaction(meta.Input))
+            return new OperationResponse(
+                false,
+                Message: $"Execution {id}'s input has values masked by [TraxSensitive], so it "
+                    + "cannot be re-queued with what it ran with."
             );
 
         var result = await operationsService.QueueTrainAsync(
