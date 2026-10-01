@@ -187,6 +187,41 @@ public class TraxAuditWriterTests
     }
 
     [Test]
+    public async Task SinkThrowsBeyondMaxRetries_CountsTheDroppedEntries()
+    {
+        // The docs tell operators to alert on trax.audit.dropped: "A dropped entry is an
+        // invisible operation." A batch the sink refuses for good is dropped here too.
+        var sink = new AlwaysFailingSink();
+        var (channel, writer, sp) = Build(
+            sink,
+            new TraxAuditOptions
+            {
+                BatchSize = 2,
+                FlushInterval = TimeSpan.FromMilliseconds(100),
+                MaxRetries = 2,
+                RetryBackoff = TimeSpan.FromMilliseconds(5),
+                ChannelCapacity = 100,
+            }
+        );
+        using (sp)
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            channel.TryEnqueue(SampleEntry("a"));
+            channel.TryEnqueue(SampleEntry("b"));
+            await writer.StartAsync(cts.Token);
+
+            await WaitUntilAsync(() => sink.Attempts >= 3, TimeSpan.FromSeconds(10));
+            await WaitUntilAsync(() => channel.TotalDropped >= 2, TimeSpan.FromSeconds(2));
+
+            channel
+                .TotalDropped.Should()
+                .Be(2, "both entries were accepted and then dropped when the sink kept failing");
+
+            await writer.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Test]
     public async Task Stop_DuringRetryBackoff_PropagatesCancellation()
     {
         var sink = new AlwaysFailingSink();

@@ -42,7 +42,12 @@ public sealed class TraxAuditWriter(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Trax audit writer loop threw. Continuing.");
+                logger.LogError(
+                    ex,
+                    "Trax audit writer loop threw. Dropping batch of {Count} and continuing.",
+                    batch.Count
+                );
+                channel.RecordDropped(batch.Count, "Trax audit writer loop threw.");
                 batch.Clear();
             }
         }
@@ -86,6 +91,10 @@ public sealed class TraxAuditWriter(
 
         if (batch.Count > 0)
             await FlushAsync(batch, ct);
+
+        // Written or counted as dropped: either way the batch is resolved, and the loop's
+        // catch must not count it a second time.
+        batch.Clear();
     }
 
     private async Task FlushAsync(IReadOnlyList<TraxAuditEntry> batch, CancellationToken ct)
@@ -130,6 +139,10 @@ public sealed class TraxAuditWriter(
                     "Trax audit sink failed after {Max} retries. Dropping batch of {Count}.",
                     _options.MaxRetries,
                     batch.Count
+                );
+                channel.RecordDropped(
+                    batch.Count,
+                    "Trax audit sink refused a batch after every retry."
                 );
                 return;
             }
