@@ -1,6 +1,8 @@
 using System.Text.Json;
 using HotChocolate;
 using HotChocolate.Execution;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Trax.Api.Exceptions;
 using Trax.Core.Exceptions;
 using Trax.Mediator.Exceptions;
@@ -36,6 +38,14 @@ namespace Trax.Api.GraphQL.Errors;
 /// The cap and observed size are intentionally not echoed to the client.
 /// </item>
 /// <item>
+/// <see cref="NoTrainForInputException"/>: the host is not built to run what the caller asked
+/// for, because no registered train takes the input; code <c>TRAX_HOST_CONFIGURATION</c>. The
+/// public message is always <see cref="TrainNotRunMessage"/>, and HotChocolate's exception detail
+/// is dropped even when the host switched it on: the exception names the input type and the
+/// assemblies the host scanned, which describe how the host is built. The full exception is
+/// logged as an error, because the fix belongs to whoever runs the host.
+/// </item>
+/// <item>
 /// <see cref="TrainException"/>: execution failures; code <c>TRAX_TRAIN_ERROR</c>. A
 /// message a train author wrote is passed through, and authors are expected to treat it as
 /// client-safe. A message that carries another exception, as the structured
@@ -50,8 +60,15 @@ namespace Trax.Api.GraphQL.Errors;
 /// left with HotChocolate's default masked message. Use the typed exceptions above
 /// when you want a message to reach the client.
 /// </remarks>
-internal class TraxErrorFilter : IErrorFilter
+internal class TraxErrorFilter(ILogger<TraxErrorFilter>? logger = null) : IErrorFilter
 {
+    private readonly ILogger _logger = logger ?? NullLogger<TraxErrorFilter>.Instance;
+
+    /// <summary>
+    /// What a client is told when the host has no train for the input it was sent.
+    /// </summary>
+    internal const string TrainNotRunMessage = "The train could not be run.";
+
     /// <summary>
     /// What a client is told when a train failed with something other than a TrainException's
     /// own message.
@@ -87,11 +104,30 @@ internal class TraxErrorFilter : IErrorFilter
             TrainInputValidationException ex => error
                 .WithMessage(ex.Message)
                 .WithCode("TRAX_INVALID_INPUT"),
+            NoTrainForInputException ex => HostConfiguration(error, ex),
             TrainException ex => error
                 .WithMessage(PublicTrainMessage(ex.Message))
                 .WithCode("TRAX_TRAIN_ERROR"),
             _ => error,
         };
+    }
+
+    private IError HostConfiguration(IError error, NoTrainForInputException exception)
+    {
+        _logger.LogError(
+            exception,
+            "A GraphQL request asked for a train this host cannot run: no registered train takes "
+                + "{InputType}. Scanned assemblies: {ScannedAssemblies}.",
+            exception.InputType.FullName,
+            exception.ScannedAssemblies
+        );
+
+        // HotChocolate writes an attached exception's message and stack trace into the response
+        // when the host switches exception details on, so the exception is detached once logged.
+        return error
+            .WithMessage(TrainNotRunMessage)
+            .WithCode("TRAX_HOST_CONFIGURATION")
+            .WithException(null);
     }
 
     /// <summary>

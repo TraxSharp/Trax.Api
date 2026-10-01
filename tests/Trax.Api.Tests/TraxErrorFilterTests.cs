@@ -212,6 +212,27 @@ public class TraxErrorFilterTests
 
     #endregion
 
+    #region NoTrainForInputException
+
+    [Test]
+    public void OnError_NoTrainForInputException_ReturnsGenericMessageWithHostConfigurationCode()
+    {
+        var ex = new NoTrainForInputException(typeof(TraxErrorFilterTests), ["Contoso.Trains"]);
+
+        var result = _filter.OnError(CreateError(ex));
+
+        result.Message.Should().Be(TraxErrorFilter.TrainNotRunMessage);
+        result.Message.Should().NotContain("Contoso").And.NotContain(nameof(TraxErrorFilterTests));
+        result.Code.Should().Be("TRAX_HOST_CONFIGURATION");
+        result
+            .Exception.Should()
+            .BeNull(
+                "an attached exception is written to the response when exception details are on"
+            );
+    }
+
+    #endregion
+
     #region Masked exceptions
 
     [Test]

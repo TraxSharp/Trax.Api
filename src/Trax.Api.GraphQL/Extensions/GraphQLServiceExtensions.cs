@@ -202,7 +202,11 @@ public static class GraphQLServiceExtensions
             .AddSubscriptionType<LifecycleSubscriptions>()
             .AddType<TrainLifecycleEventType>()
             .AddTypeModule<TrainTypeModule>()
-            .AddErrorFilter<TraxErrorFilter>()
+            // The schema container does not forward to the application one, so the filter's
+            // logger comes from the root provider HotChocolate exposes for exactly this.
+            .AddErrorFilter(sp => new TraxErrorFilter(
+                sp.GetRootServiceProvider().GetService<ILogger<TraxErrorFilter>>()
+            ))
             .AddInMemorySubscriptions();
 
         if (config.OperationQueriesExposed)
