@@ -540,6 +540,7 @@ public class AdminEndpointStressTests : StressTestSetup
             async (sp, ct) =>
             {
                 var page = await new LogQueries().GetLogs(
+                    Operations(sp),
                     Factory(sp),
                     ct,
                     take: 25,
@@ -560,6 +561,7 @@ public class AdminEndpointStressTests : StressTestSetup
             async (sp, ct) =>
             {
                 var page = await new LogQueries().GetLogs(
+                    Operations(sp),
                     Factory(sp),
                     ct,
                     take: 25,
@@ -580,6 +582,7 @@ public class AdminEndpointStressTests : StressTestSetup
             async (sp, ct) =>
             {
                 var page = await new LogQueries().GetLogs(
+                    Operations(sp),
                     Factory(sp),
                     ct,
                     take: 25,
@@ -601,6 +604,7 @@ public class AdminEndpointStressTests : StressTestSetup
             async (sp, ct) =>
             {
                 var page = await new LogQueries().GetLogs(
+                    Operations(sp),
                     Factory(sp),
                     ct,
                     take: 25,
@@ -762,7 +766,7 @@ public class AdminEndpointStressTests : StressTestSetup
             ListBudget,
             async (sp, ct) =>
             {
-                var stats = await new OperationsQueries().GetManifestStats(1, Factory(sp), ct);
+                var stats = await new OperationsQueries().GetManifestStats(1, Operations(sp), ct);
                 stats.ManifestId.Should().Be(1);
                 stats.Total.Should().BeGreaterThan(0);
             }
@@ -802,7 +806,7 @@ public class AdminEndpointStressTests : StressTestSetup
             MetricsBudget,
             async (sp, ct) =>
             {
-                var stats = await new ManifestGroupQueries().GetStats(groupIds, Factory(sp), ct);
+                var stats = await new ManifestGroupQueries().GetStats(groupIds, Operations(sp), ct);
                 stats.Should().HaveCount(25);
                 stats.Should().Contain(s => s.TotalExecutions > 0);
             }

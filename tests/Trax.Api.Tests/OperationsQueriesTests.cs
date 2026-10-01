@@ -21,6 +21,8 @@ using Trax.Effect.Models.Metadata;
 using Trax.Effect.Models.Metadata.DTOs;
 using Trax.Effect.Services.ChangeSignal;
 using Trax.Effect.Services.EffectRegistry;
+using Trax.Mediator.Services.TrainDiscovery;
+using Trax.Mediator.Services.TrainExecution;
 using Trax.Scheduler.Configuration;
 using Trax.Scheduler.Services.Operations;
 
@@ -49,6 +51,14 @@ public class OperationsQueriesTests
 
     private ServiceProvider _provider = null!;
     private IDataContextProviderFactory _factory = null!;
+
+    private IOperationsService Operations =>
+        new OperationsService(
+            Substitute.For<ITrainDiscoveryService>(),
+            _factory,
+            new SchedulerConfiguration(),
+            Substitute.For<ITrainExecutionService>()
+        );
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -806,7 +816,7 @@ public class OperationsQueriesTests
         await SeedExecutionsForManifest(m1, 2, TrainState.Failed);
         await SeedExecutionsForManifest(m1, 1, TrainState.InProgress);
 
-        var stats = await new OperationsQueries().GetManifestStats(m1, _factory, default);
+        var stats = await new OperationsQueries().GetManifestStats(m1, Operations, default);
 
         stats.ManifestId.Should().Be(m1);
         stats.Total.Should().Be(6);
@@ -825,7 +835,7 @@ public class OperationsQueriesTests
         var groupId = await SeedManifestGroup("g");
         var m1 = await SeedManifestInGroup(groupId);
 
-        var stats = await new OperationsQueries().GetManifestStats(m1, _factory, default);
+        var stats = await new OperationsQueries().GetManifestStats(m1, Operations, default);
 
         stats.Total.Should().Be(0);
         stats.Completed.Should().Be(0);
@@ -847,7 +857,7 @@ public class OperationsQueriesTests
 
         var stats = await new ManifestGroupQueries().GetStats(
             new[] { groupA, groupB },
-            _factory,
+            Operations,
             default
         );
 
@@ -869,7 +879,7 @@ public class OperationsQueriesTests
     {
         var stats = await new ManifestGroupQueries().GetStats(
             Array.Empty<long>(),
-            _factory,
+            Operations,
             default
         );
 
@@ -881,7 +891,11 @@ public class OperationsQueriesTests
     {
         var groupId = await SeedManifestGroup("empty");
 
-        var stats = await new ManifestGroupQueries().GetStats(new[] { groupId }, _factory, default);
+        var stats = await new ManifestGroupQueries().GetStats(
+            new[] { groupId },
+            Operations,
+            default
+        );
 
         stats.Should().ContainSingle();
         stats[0].GroupId.Should().Be(groupId);

@@ -18,6 +18,9 @@ using Trax.Effect.Models.Metadata;
 using Trax.Effect.Models.Metadata.DTOs;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
+using Trax.Mediator.Services.TrainExecution;
+using Trax.Scheduler.Configuration;
+using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
 namespace Trax.Api.Tests;
@@ -37,6 +40,14 @@ public class LogQueriesTests
 
     private ServiceProvider _provider = null!;
     private IDataContextProviderFactory _factory = null!;
+
+    private IOperationsService Operations =>
+        new OperationsService(
+            Substitute.For<ITrainDiscoveryService>(),
+            _factory,
+            new SchedulerConfiguration(),
+            Substitute.For<ITrainExecutionService>()
+        );
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -108,7 +119,7 @@ public class LogQueriesTests
     {
         var queries = new LogQueries();
 
-        var result = await queries.GetLogs(_factory, default);
+        var result = await queries.GetLogs(Operations, _factory, default);
 
         result.Items.Should().BeEmpty();
         result.TotalCount.Should().Be(0);
@@ -122,7 +133,7 @@ public class LogQueriesTests
         await SeedLogs(metaId, 5);
         var queries = new LogQueries();
 
-        var result = await queries.GetLogs(_factory, default, take: 2);
+        var result = await queries.GetLogs(Operations, _factory, default, take: 2);
 
         result.Items.Should().HaveCount(2);
         result.NextCursor.Should().NotBeNull();
@@ -134,9 +145,15 @@ public class LogQueriesTests
         var metaId = await SeedMetadata();
         await SeedLogs(metaId, 5);
         var queries = new LogQueries();
-        var first = await queries.GetLogs(_factory, default, take: 2);
+        var first = await queries.GetLogs(Operations, _factory, default, take: 2);
 
-        var page2 = await queries.GetLogs(_factory, default, take: 2, afterId: first.NextCursor);
+        var page2 = await queries.GetLogs(
+            Operations,
+            _factory,
+            default,
+            take: 2,
+            afterId: first.NextCursor
+        );
 
         page2.Items.Should().HaveCount(2);
         page2
@@ -153,7 +170,7 @@ public class LogQueriesTests
         await SeedLogs(metaId, 5);
         var queries = new LogQueries();
 
-        var result = await queries.GetLogs(_factory, default, skip: 2, take: 2);
+        var result = await queries.GetLogs(Operations, _factory, default, skip: 2, take: 2);
 
         result.Items.Should().HaveCount(2);
         result.Skip.Should().Be(2);
@@ -168,8 +185,8 @@ public class LogQueriesTests
         await SeedLogs(meta2, 3);
         var queries = new LogQueries();
 
-        var meta1Logs = await queries.GetLogs(_factory, default, metadataId: meta1);
-        var meta2Logs = await queries.GetLogs(_factory, default, metadataId: meta2);
+        var meta1Logs = await queries.GetLogs(Operations, _factory, default, metadataId: meta1);
+        var meta2Logs = await queries.GetLogs(Operations, _factory, default, metadataId: meta2);
 
         meta1Logs.Items.Should().HaveCount(2);
         meta1Logs.Items.Should().OnlyContain(l => l.MetadataId == meta1);
@@ -186,6 +203,7 @@ public class LogQueriesTests
         var queries = new LogQueries();
 
         var warningOrAbove = await queries.GetLogs(
+            Operations,
             _factory,
             default,
             minimumLevel: LogLevel.Warning
@@ -203,7 +221,7 @@ public class LogQueriesTests
         await SeedLogs(metaId, 3, category: "Beta");
         var queries = new LogQueries();
 
-        var alpha = await queries.GetLogs(_factory, default, category: "Alpha");
+        var alpha = await queries.GetLogs(Operations, _factory, default, category: "Alpha");
 
         alpha.Items.Should().HaveCount(2);
         alpha.Items.Should().OnlyContain(l => l.Category == "Alpha");
@@ -216,7 +234,7 @@ public class LogQueriesTests
         await SeedLogs(metaId, 3);
         var queries = new LogQueries();
 
-        var result = await queries.GetLogs(_factory, default, category: "   ");
+        var result = await queries.GetLogs(Operations, _factory, default, category: "   ");
 
         result.Items.Should().HaveCount(3);
     }
@@ -228,7 +246,7 @@ public class LogQueriesTests
         await SeedLogs(metaId, 1, LogLevel.Error, "MyCat");
         var queries = new LogQueries();
 
-        var result = await queries.GetLogs(_factory, default);
+        var result = await queries.GetLogs(Operations, _factory, default);
 
         var entry = result.Items.Single();
         entry.MetadataId.Should().Be(metaId);
@@ -262,8 +280,15 @@ public class LogQueriesTests
         var dialect = _provider.GetRequiredService<ISqlDialect>();
         var queries = new LogQueries();
 
-        var first = await queries.GetLogs(_factory, default, take: 10, sqlDialect: dialect);
+        var first = await queries.GetLogs(
+            Operations,
+            _factory,
+            default,
+            take: 10,
+            sqlDialect: dialect
+        );
         var second = await queries.GetLogs(
+            Operations,
             _factory,
             default,
             take: 10,
@@ -287,6 +312,7 @@ public class LogQueriesTests
         var dialect = _provider.GetRequiredService<ISqlDialect>();
 
         var result = await new LogQueries().GetLogs(
+            Operations,
             _factory,
             default,
             metadataId: metaId,
@@ -307,11 +333,12 @@ public class LogQueriesTests
         noEstimate.EstimateRowCount().Returns((string?)null);
 
         var withoutEstimate = await new LogQueries().GetLogs(
+            Operations,
             _factory,
             default,
             sqlDialect: noEstimate
         );
-        var withoutDialect = await new LogQueries().GetLogs(_factory, default);
+        var withoutDialect = await new LogQueries().GetLogs(Operations, _factory, default);
 
         withoutEstimate.IsEstimatedCount.Should().BeFalse();
         withoutEstimate.TotalCount.Should().Be(LargeTableRows);
@@ -339,12 +366,13 @@ public class LogQueriesTests
         );
         services.AddScoped(_ => Substitute.For<ITraxHealthService>());
         services.AddScoped(_ => Substitute.For<ITraxScheduler>());
+        services.AddScoped(_ => Operations);
         await using var serviceProvider = services.BuildServiceProvider();
         var executor = await serviceProvider
             .GetRequiredService<IRequestExecutorProvider>()
             .GetExecutorAsync("trax");
 
-        var result = (OperationResult)
+        var result = (HotChocolate.Execution.OperationResult)
             await executor.ExecuteAsync(
                 "{ operations { logs { logs(take: 1) { totalCount isEstimatedCount } } } }"
             );

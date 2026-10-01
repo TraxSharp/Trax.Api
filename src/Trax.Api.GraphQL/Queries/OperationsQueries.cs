@@ -13,6 +13,8 @@ using Trax.Effect.Services.EffectProviderFactory;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
 using Trax.Scheduler.Configuration;
+using Trax.Scheduler.Services.Operations;
+using ManifestExecutionStats = Trax.Api.DTOs.ManifestExecutionStats;
 
 namespace Trax.Api.GraphQL.Queries;
 
@@ -381,39 +383,28 @@ public class OperationsQueries
 
     /// <summary>
     /// Execution roll-up for a single manifest: run counts by state plus the most recent run and
-    /// most recent successful run. Backs the summary cards on the dashboard's manifest detail page.
+    /// most recent successful run. Backs the summary cards on the dashboard's manifest detail page,
+    /// and reads through the same <see cref="IOperationsService"/> call. A manifest with no runs,
+    /// or an id with no manifest, gets zeros and nulls.
     /// </summary>
     public async Task<ManifestExecutionStats> GetManifestStats(
         long manifestId,
-        [Service] IDataContextProviderFactory dataContextFactory,
+        [Service] IOperationsService operationsService,
         CancellationToken ct
     )
     {
-        using var db = await dataContextFactory.CreateDbContextAsync(ct);
-        var scoped = db.Metadatas.AsNoTracking().Where(m => m.ManifestId == manifestId);
-
-        var byState = await scoped
-            .GroupBy(m => m.TrainState)
-            .Select(g => new { State = g.Key, Count = (long)g.Count() })
-            .ToListAsync(ct);
-
-        long CountOf(TrainState state) => byState.FirstOrDefault(x => x.State == state)?.Count ?? 0;
-
-        var lastRun = await scoped.MaxAsync(m => (DateTime?)m.StartTime, ct);
-        var lastSuccessfulRun = await scoped
-            .Where(m => m.TrainState == TrainState.Completed && m.EndTime != null)
-            .MaxAsync(m => (DateTime?)m.EndTime, ct);
+        var stats = await operationsService.GetManifestExecutionStatsAsync(manifestId, ct);
 
         return new ManifestExecutionStats(
-            manifestId,
-            Total: byState.Sum(x => x.Count),
-            Completed: CountOf(TrainState.Completed),
-            Failed: CountOf(TrainState.Failed),
-            InProgress: CountOf(TrainState.InProgress),
-            Pending: CountOf(TrainState.Pending),
-            Cancelled: CountOf(TrainState.Cancelled),
-            LastRun: lastRun,
-            LastSuccessfulRun: lastSuccessfulRun
+            stats.ManifestId,
+            stats.Total,
+            stats.Completed,
+            stats.Failed,
+            stats.InProgress,
+            stats.Pending,
+            stats.Cancelled,
+            stats.LastRun,
+            stats.LastSuccessfulRun
         );
     }
 
