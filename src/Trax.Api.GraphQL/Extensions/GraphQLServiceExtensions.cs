@@ -258,18 +258,24 @@ public static class GraphQLServiceExtensions
         // Wire HotChocolate's @authorize directive handler whenever an @authorize can reach the
         // schema. The directive runs against ASP.NET Core's IAuthorizationService, so RequireRole
         // and policy definitions registered via services.AddAuthorization(...) apply. Wiring is
-        // conditional so the dependency stays opt-in for hosts with nothing gated: the interceptor
-        // resolves IAuthenticationSchemeProvider, which a host that never called AddAuthentication()
-        // does not have.
+        // conditional so a host with nothing gated takes on no authorization services. A host that
+        // never called AddAuthentication() still serves a gated or [TraxAllowAnonymous] field: the
+        // HTTP interceptor looks IAuthenticationSchemeProvider up optionally and treats its absence
+        // as an anonymous caller.
         //
-        // Three things can put one in the schema: a [TraxAuthorize] query model, an operations
-        // gate (GateOperations(...) or GateOperationsToAuthenticatedUsers()), and [TraxAuthorize] or [TraxAllowAnonymous] on a
-        // type-extension resolver, which is what TypeExtensionExposureInterceptor requires of a
-        // field that inherits no gate and turns into an @authorize directive.
+        // These can put one in the schema: a [TraxAuthorize] query model or navigation target,
+        // an operations gate (GateOperations(...) or GateOperationsToAuthenticatedUsers()),
+        // [TraxAuthorize] or [TraxAllowAnonymous] on a type-extension resolver, which is what
+        // TypeExtensionExposureInterceptor requires of a field that inherits no gate and turns
+        // into an @authorize directive, and any consumer type module.
         var authorizationInSchema =
             config.ModelRegistrations.Any(r => r.AuthorizeAttributes.Count > 0)
+            || config.NavigationTargets.Any(t => t.IsGated)
             || config.OperationsAuthorizeAttributes.Count > 0
-            || AnyTypeExtensionDeclaresPosture(config.AdditionalTypeExtensions);
+            || AnyTypeExtensionDeclaresPosture(config.AdditionalTypeExtensions)
+            // A type module builds its types at schema construction, so what it contributes
+            // cannot be inspected here; any module may carry a [TraxAuthorize] resolver.
+            || config.AdditionalTypeModules.Count > 0;
 
         if (authorizationInSchema)
         {
@@ -316,6 +322,14 @@ public static class GraphQLServiceExtensions
                 services.AddHostedService<QueryModelAuthorizationSchemaValidator>();
             }
 
+            // Every entity a query model reaches, through its type or its filter and sort
+            // inputs, declares its posture; a declared [TraxAuthorize] gates the inferred type.
+            services.AddHostedService<QueryModelReachValidator>();
+            if (config.NavigationTargets.Any(t => t.IsGated))
+                graphqlBuilder.TryAddTypeInterceptor(
+                    new NavigationTargetPostureInterceptor(config)
+                );
+
             // Register DiscoverQueries base type and discover field on RootQuery.
             // TrainTypeModule will skip creating these when it detects model registrations.
             graphqlBuilder.AddType(new ObjectType<DiscoverQueries>());
@@ -350,23 +364,25 @@ public static class GraphQLServiceExtensions
                     services.AddHostedService<QueryModelScalarCollectionIndexValidator>();
                 }
 
-                if (config.FilterModules.Count > 0 || listElementBindings.Count > 0)
-                    graphqlBuilder.AddFiltering(convention =>
-                    {
-                        // Supplying a configure action replaces HotChocolate's default
-                        // convention wiring, so re-establish the stock operations and
-                        // queryable provider before layering the opt-in modules on top.
-                        convention.AddDefaults();
-                        ListElementFilterBinding.Apply(convention, listElementBindings);
-                        foreach (var module in config.FilterModules)
-                            module.Apply(convention);
-                    });
-                else
-                    graphqlBuilder.AddFiltering();
+                // Supplying a configure action replaces HotChocolate's default convention
+                // wiring, so re-establish the stock operations and queryable provider before
+                // layering Trax's bindings and the opt-in modules on top.
+                graphqlBuilder.AddFiltering(convention =>
+                {
+                    convention.AddDefaults();
+                    BindQueryModelFilterTypes(convention, config);
+                    ListElementFilterBinding.Apply(convention, listElementBindings);
+                    foreach (var module in config.FilterModules)
+                        module.Apply(convention);
+                });
             }
 
             if (config.ModelRegistrations.Any(r => r.Attribute.Sorting))
-                graphqlBuilder.AddSorting();
+                graphqlBuilder.AddSorting(convention =>
+                {
+                    convention.AddDefaults();
+                    BindQueryModelSortTypes(convention, config);
+                });
 
             if (config.ModelRegistrations.Any(r => r.Attribute.Projection))
             {
@@ -404,10 +420,16 @@ public static class GraphQLServiceExtensions
         }
 
         // The exposure census for type-extension fields. Registered whenever a type extension
-        // could exist: through Trax's own AddTypeExtension(s), or through a ConfigureSchema
-        // callback, which has full builder access and can add one Trax never sees. A host with
-        // neither cannot have a type-extension field, and pays nothing.
-        if (config.AdditionalTypeExtensions.Count > 0 || config.SchemaConfigurations.Count > 0)
+        // could exist: through Trax's own AddTypeExtension(s), through a consumer type module
+        // (AddTypeModule<T>()), which can contribute an ObjectTypeExtension, or through a
+        // ConfigureSchema callback, which has full builder access and can add one Trax never
+        // sees. A host with none of the three cannot have a type-extension field, and pays
+        // nothing.
+        if (
+            config.AdditionalTypeExtensions.Count > 0
+            || config.AdditionalTypeModules.Count > 0
+            || config.SchemaConfigurations.Count > 0
+        )
         {
             var exposureReport = new TypeExtensionExposureReport();
             services.AddSingleton(exposureReport);
@@ -457,6 +479,38 @@ public static class GraphQLServiceExtensions
                 )
                 .Any(DeclaresPosture)
         );
+
+    /// <summary>
+    /// Binds every query model to its filter input, so a navigation from another model's filter
+    /// reaches the same input the model's own entry field uses: the host's override when it
+    /// supplied one, otherwise the input built from the model's exposed field set.
+    /// </summary>
+    private static void BindQueryModelFilterTypes(
+        HotChocolate.Data.Filters.IFilterConventionDescriptor convention,
+        GraphQLConfiguration config
+    )
+    {
+        foreach (var reg in config.ModelRegistrations.DistinctBy(r => r.EntityType))
+            convention.BindRuntimeType(
+                reg.EntityType,
+                reg.FilterInputType
+                    ?? typeof(QueryModelFilterInputType<>).MakeGenericType(reg.EntityType)
+            );
+    }
+
+    /// <summary>The sort counterpart of <see cref="BindQueryModelFilterTypes"/>.</summary>
+    private static void BindQueryModelSortTypes(
+        HotChocolate.Data.Sorting.ISortConventionDescriptor convention,
+        GraphQLConfiguration config
+    )
+    {
+        foreach (var reg in config.ModelRegistrations.DistinctBy(r => r.EntityType))
+            convention.BindRuntimeType(
+                reg.EntityType,
+                reg.SortInputType
+                    ?? typeof(QueryModelSortInputType<>).MakeGenericType(reg.EntityType)
+            );
+    }
 
     private static bool DeclaresPosture(MemberInfo member) =>
         member.IsDefined(typeof(TraxAuthorizeAttribute), inherit: true)

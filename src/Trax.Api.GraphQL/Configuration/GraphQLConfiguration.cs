@@ -119,6 +119,12 @@ public class GraphQLConfiguration
     internal bool GetRequestsAllowed { get; init; }
 
     /// <summary>
+    /// The classes the query models reach through their properties that are not query models
+    /// themselves, with the posture each declares. See <see cref="NavigationTargetPosture"/>.
+    /// </summary>
+    internal IReadOnlyList<NavigationTargetPosture> NavigationTargets { get; init; } = [];
+
+    /// <summary>
     /// Origins set through <c>TraxGraphQLBuilder.AllowSocketOrigins()</c>, normalized, or
     /// <c>null</c> when the host's CORS default policy decides which origins may open a socket.
     /// </summary>
