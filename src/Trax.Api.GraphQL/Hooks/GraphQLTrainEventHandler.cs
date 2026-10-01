@@ -102,7 +102,12 @@ public class GraphQLTrainEventHandler : ITrainEventHandler
             Output: message.Output,
             HostName: message.HostName,
             HostEnvironment: message.HostEnvironment
-        );
+        )
+        {
+            // The exception type decides whether a broadcast subscriber may see the reason, so a
+            // remote failure is presented exactly as the same failure on this node would be.
+            FailureException = message.FailureException,
+        };
 
         await _eventSender.SendAsync(topicName, lifecycleEvent, ct);
 
