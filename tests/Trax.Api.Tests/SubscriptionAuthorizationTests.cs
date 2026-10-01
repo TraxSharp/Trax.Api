@@ -117,7 +117,7 @@ public class SubscriptionAuthorizationTests
     {
         var executor = await BuildAsync(
             g => g,
-            Broadcast<IAdminOnlyTrain>(roles: "ADMIN"),
+            Broadcast<IAdminOnlyTrain>(roles: "Admin"),
             Broadcast<IPublicTrain>(anonymous: true)
         );
         await using var sub = await SubscribeAsync(executor, LifecycleQuery, User("Player"));
@@ -142,12 +142,38 @@ public class SubscriptionAuthorizationTests
     [Test]
     public async Task BroadcastTrainGatedByRole_IsDeliveredToAnAdmin()
     {
-        var executor = await BuildAsync(g => g, Broadcast<IAdminOnlyTrain>(roles: "ADMIN"));
+        var executor = await BuildAsync(g => g, Broadcast<IAdminOnlyTrain>(roles: "Admin"));
         await using var sub = await SubscribeAsync(executor, LifecycleQuery, User("Admin"));
 
         var received = await sub.NextAsync(() => Publish(Event(typeof(IAdminOnlyTrain).FullName!)));
 
         received["trainName"].Should().Be(typeof(IAdminOnlyTrain).FullName);
+    }
+
+    [Test]
+    public async Task BroadcastTrainGatedByRole_IsNotDeliveredToARoleDifferingOnlyInCase()
+    {
+        // Roles match exactly, as IsInRole compares them (Trax.Docs
+        // adr/0026-train-roles-match-exactly-like-authorize.md).
+        var executor = await BuildAsync(
+            g => g,
+            Broadcast<IAdminOnlyTrain>(roles: "Admin"),
+            Broadcast<IPublicTrain>(anonymous: true)
+        );
+        await using var sub = await SubscribeAsync(executor, LifecycleQuery, User("admin"));
+
+        var received = await sub.NextAsync(() =>
+        {
+            Publish(Event(typeof(IAdminOnlyTrain).FullName!));
+            Publish(Event(typeof(IPublicTrain).FullName!));
+        });
+
+        received["trainName"]
+            .Should()
+            .Be(
+                typeof(IPublicTrain).FullName,
+                "a role differing only in case does not satisfy the train, per " + Adr
+            );
     }
 
     [Test]
