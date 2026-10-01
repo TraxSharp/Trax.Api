@@ -58,8 +58,8 @@ public class ReadFieldStressTests : StressTestSetup
                     SELECT 'wqs-' || g, 'Trax.Stress.Trains.IStressTrain1',
                            CASE WHEN g % 10 = 0 THEN 'dispatched'::trax.work_queue_status
                                 ELSE 'queued'::trax.work_queue_status END,
-                           (now() at time zone 'utc') - ((g % 20160) * interval '1 minute'),
-                           (g % 32), 0, 'subject-' || (g % {Subjects}), now() at time zone 'utc',
+                           now() - ((g % 20160) * interval '1 minute'),
+                           (g % 32), 0, 'subject-' || (g % {Subjects}), now(),
                            CASE WHEN g % 10 = 0 THEN 1 + (g % {metadataRows}) ELSE NULL END
                     FROM generate_series(1, {missing}) g
                     """,
