@@ -3,6 +3,7 @@ using Trax.Api.DTOs;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.ChangeSignal;
+using Trax.Effect.Services.EffectRegistry;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
@@ -259,6 +260,50 @@ public class OperationsMutations
         await db.SaveChanges(ct);
         changeSignal.Notify(ChangeDomain.Manifest);
         return new OperationResponse(true, Count: 1, Message: "Manifest updated");
+    }
+
+    /// <summary>
+    /// Turns the observational effect whose factory has this full type name on or off in THIS
+    /// process, through the effect registry exactly as the dashboard's effects page does. The
+    /// change is in memory: it does not reach the scheduler or worker processes where trains
+    /// usually run, and a restart restores the configured state. An effect the registry does not
+    /// track, or tracks as not toggleable, is refused and nothing changes. On success
+    /// <c>count</c> is 1.
+    /// </summary>
+    public OperationResponse SetEffectEnabled(
+        string fullName,
+        bool enabled,
+        [Service] IEffectRegistry registry
+    )
+    {
+        var factoryType = registry
+            .GetAll()
+            .Keys.FirstOrDefault(t =>
+                string.Equals(t.FullName ?? t.Name, fullName, StringComparison.Ordinal)
+            );
+
+        if (factoryType is null)
+            return new OperationResponse(
+                false,
+                Message: $"No effect named '{fullName}' is registered in this process."
+            );
+
+        if (!registry.IsToggleable(factoryType))
+            return new OperationResponse(
+                false,
+                Message: $"The effect '{fullName}' is registered as not toggleable."
+            );
+
+        if (enabled)
+            registry.Enable(factoryType);
+        else
+            registry.Disable(factoryType);
+
+        return new OperationResponse(
+            true,
+            Count: 1,
+            Message: enabled ? "Effect enabled in this process" : "Effect disabled in this process"
+        );
     }
 
     private static bool IsTruncatedPlaceholder(string input)

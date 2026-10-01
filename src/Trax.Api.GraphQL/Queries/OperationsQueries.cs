@@ -113,9 +113,10 @@ public class OperationsQueries
 
     /// <summary>
     /// The observational effects registered in THIS process, with their enabled + toggleable state
-    /// and, for a factory that exposes runtime settings, those settings as JSON. Read-only: the
-    /// registry is an in-memory per-process singleton, so this reflects the API host only, not the
-    /// scheduler/worker processes where effects run. Backs the dashboard effects list.
+    /// and, for a factory that exposes runtime settings, those settings as JSON. The registry is an
+    /// in-memory per-process singleton, so this reflects the API host only, not the
+    /// scheduler/worker processes where effects run; <c>operations.setEffectEnabled</c> toggles
+    /// one here. Backs the dashboard effects list.
     /// </summary>
     /// <remarks>
     /// Settings can hold credentials. They are reachable only here, under the operations

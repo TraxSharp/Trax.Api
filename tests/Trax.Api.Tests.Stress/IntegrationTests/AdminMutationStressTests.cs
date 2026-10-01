@@ -6,6 +6,7 @@ using Trax.Api.Tests.Stress.Fakes.Trains;
 using Trax.Api.Tests.Stress.Fixtures;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Services.ChangeSignal;
+using Trax.Effect.Services.EffectRegistry;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
@@ -77,6 +78,36 @@ public class AdminMutationStressTests : StressTestSetup
             "DELETE FROM trax.work_queue WHERE status = 'queued' AND manifest_id IN "
                 + $"(SELECT id FROM trax.manifest WHERE {manifestFilter})"
         );
+
+    #region Per-process writes
+
+    [Test]
+    public async Task SetEffectEnabled_WithinBudget()
+    {
+        // Per-process and in memory, so its cost does not grow with the seed; the budget pins
+        // that it stays a registry write and never picks up a database round trip.
+        await MeasureAsync(
+            "operations.setEffectEnabled",
+            TrivialBudget,
+            (sp, _) =>
+            {
+                var effects = sp.GetRequiredService<IEffectRegistry>();
+                var toggleable = effects.GetToggleable().Keys.First();
+                var mutations = new OperationsMutations();
+                mutations
+                    .SetEffectEnabled(toggleable.FullName!, false, effects)
+                    .Success.Should()
+                    .BeTrue();
+                mutations
+                    .SetEffectEnabled(toggleable.FullName!, true, effects)
+                    .Success.Should()
+                    .BeTrue();
+                return Task.CompletedTask;
+            }
+        );
+    }
+
+    #endregion
 
     #region Manifest writes
 
