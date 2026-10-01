@@ -21,6 +21,7 @@ using Trax.Effect.Extensions;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
 using Trax.Mediator.Services.TrainExecution;
+using Trax.Scheduler.Services.JobSubmitter;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
@@ -69,6 +70,7 @@ public class PersistedOperationIdBindingTests
                         s.AddSingleton(Substitute.For<IEffectRegistry>());
                         s.AddSingleton(Substitute.For<ITraxScheduler>());
                         s.AddSingleton(Substitute.For<IOperationsService>());
+                        s.AddScoped(_ => Substitute.For<IJobSubmitter>());
                         s.AddSingleton(Substitute.For<ITrainExecutionService>());
                         s.AddSingleton(Substitute.For<ITraxHealthService>());
                         s.AddTrax(trax =>
