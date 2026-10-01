@@ -59,11 +59,18 @@ public class AdminMutationStressTests : StressTestSetup
         sp.GetRequiredService<IOperationsService>();
 
     /// <summary>
-    /// Dead letters awaiting intervention on distinct manifests, so requeueing them never trips
-    /// the one-queued-entry-per-manifest index.
+    /// A page of dead letters awaiting intervention, as an operator selects them, in pairs that
+    /// share a manifest: <c>g</c> and <c>g + 4 * Manifests</c> have the same manifest and the same
+    /// seeded status. A requeue folds each pair into one work queue entry and resolves both.
     /// </summary>
     private static long[] AwaitingDeadLetterIds(int count) =>
-        Enumerable.Range(0, count).Select(k => DeadLetterId + 4L * k).ToArray();
+        Enumerable
+            .Range(0, (count + 1) / 2)
+            .SelectMany(k =>
+                new[] { DeadLetterId + 4L * k, DeadLetterId + 4L * k + 4L * Profile.Manifests }
+            )
+            .Take(count)
+            .ToArray();
 
     private static Task RestoreDeadLetters(long[] ids) =>
         ExecSqlAsync(
