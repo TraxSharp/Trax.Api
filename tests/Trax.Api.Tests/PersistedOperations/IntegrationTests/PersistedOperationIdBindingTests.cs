@@ -30,7 +30,10 @@ namespace Trax.Api.Tests.PersistedOperations.IntegrationTests;
 /// A persisted-operation id names the document the store holds for it, and nothing else. A
 /// document one caller sends alongside an id the store does not hold (never uploaded, or
 /// deactivated) must not become what that id runs for the next caller who asks for it by id.
+///
+/// <para>Enforces <c>docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md</c>.</para>
 /// </summary>
+[Property("adr", "docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md")]
 [TestFixture]
 [Category("Integration")]
 public class PersistedOperationIdBindingTests
@@ -83,6 +86,7 @@ public class PersistedOperationIdBindingTests
                                 .AddTypeExtension<GraphQLFixture.HelloQuery>()
                                 .UsePersistedOperations(po =>
                                     po.UseDatabase(PostgresFixture.ConnectionString)
+                                        .SingleNode()
                                         .RequirePersisted(requirePersisted)
                                         .LogNonPersistedRequests()
                                 )
@@ -131,7 +135,7 @@ public class PersistedOperationIdBindingTests
             .TryGetProperty("data", out var data)
             .Should()
             .BeFalse(
-                "an id the store does not hold must be refused, not run another caller's document: {0}",
+                "an id the store does not hold must be refused, not run another caller's document (Trax.Api docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md): {0}",
                 reply
             );
         data.ValueKind.Should().NotBe(JsonValueKind.Object);
@@ -155,7 +159,7 @@ public class PersistedOperationIdBindingTests
             .TryGetProperty("data", out var data)
             .Should()
             .BeFalse(
-                "a deactivated id must stay refused, not run another caller's document: {0}",
+                "a deactivated id must stay refused, not run another caller's document (Trax.Api docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md): {0}",
                 reply
             );
         data.ValueKind.Should().NotBe(JsonValueKind.Object);
@@ -182,7 +186,7 @@ public class PersistedOperationIdBindingTests
                 .TryGetProperty("data", out var data)
                 .Should()
                 .BeFalse(
-                    "an id the store does not hold must be refused, not run another caller's document: {0}",
+                    "an id the store does not hold must be refused, not run another caller's document (Trax.Api docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md): {0}",
                     reply
                 );
             data.ValueKind.Should().NotBe(JsonValueKind.Object);
@@ -197,7 +201,13 @@ public class PersistedOperationIdBindingTests
             new { id = "Mismatched", query = "query Mismatched { version }" }
         );
 
-        reply.TryGetProperty("data", out _).Should().BeFalse("{0}", reply);
+        reply
+            .TryGetProperty("data", out _)
+            .Should()
+            .BeFalse(
+                "an id runs only its stored document (Trax.Api docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md): {0}",
+                reply
+            );
         reply
             .GetProperty("errors")[0]
             .GetProperty("extensions")
@@ -219,7 +229,13 @@ public class PersistedOperationIdBindingTests
 
         var reply = await PostAsync(new { id = "HeldGreeting", query = "query Other { version }" });
 
-        reply.TryGetProperty("data", out _).Should().BeFalse("{0}", reply);
+        reply
+            .TryGetProperty("data", out _)
+            .Should()
+            .BeFalse(
+                "an id runs only its stored document (Trax.Api docs/adr/0026-a-persisted-operation-id-means-one-document-on-every-node.md): {0}",
+                reply
+            );
     }
 
     [Test]
