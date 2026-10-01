@@ -1515,6 +1515,29 @@ public class OperationsQueriesTests
     }
 
     [Test]
+    public async Task GetDeadLetters_CursorPage_TotalCountIsEveryMatchingRecord()
+    {
+        var manifest = await SeedManifestForDeadLetter();
+        await SeedDeadLetters(5, manifest);
+        var queries = new DeadLetterQueries();
+        var first = await queries.GetDeadLetters(_factory, default, take: 2);
+
+        var page2 = await queries.GetDeadLetters(
+            _factory,
+            default,
+            skip: 3,
+            take: 2,
+            afterId: first.NextCursor
+        );
+
+        // Every other paged operations read counts the filter, not the rows after the cursor,
+        // and reports skip as 0 once a cursor is given ("skip is ignored").
+        first.TotalCount.Should().Be(5);
+        page2.TotalCount.Should().Be(5, "totalCount is the number of records matching the query");
+        page2.Skip.Should().Be(0, "skip is ignored when afterId is supplied");
+    }
+
+    [Test]
     public async Task GetDeadLetters_SkipHonored()
     {
         var manifest = await SeedManifestForDeadLetter();
