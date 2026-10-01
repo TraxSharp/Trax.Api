@@ -21,11 +21,17 @@ namespace Trax.Api.Tests;
 /// A query model's <c>where</c> and <c>order</c> inputs offer exactly the fields its type
 /// exposes. <c>BindFields = Explicit</c> and <c>ExposeAs</c> narrow the type, so they narrow the
 /// filter and sort inputs with it, both on the model's own entry field and wherever another
-/// model's input reaches it through a navigation.
+/// model's input reaches it through a navigation. Guard for
+/// <c>docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md</c>.
 /// </summary>
+[Property("adr", "docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md")]
 [TestFixture]
 public class QueryModelFilterSortFieldSetTests
 {
+    private const string Adr =
+        "docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md: filter and sort "
+        + "follow the exposed field set";
+
     [Test]
     public async Task Explicit_binding_leaves_a_non_column_property_out_of_the_filter_input()
     {
@@ -37,7 +43,7 @@ public class QueryModelFilterSortFieldSetTests
             "{ discover { fieldSetAccounts(where: { passwordHash: { startsWith: \"secret\" } }) { nodes { name } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("alice");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("alice", Adr);
     }
 
     [Test]
@@ -51,7 +57,7 @@ public class QueryModelFilterSortFieldSetTests
             "{ discover { fieldSetAccounts(order: [{ passwordHash: ASC }]) { nodes { name } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("alice");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("alice", Adr);
     }
 
     [Test]
@@ -79,7 +85,7 @@ public class QueryModelFilterSortFieldSetTests
             "{ discover { fieldSetTickets(where: { account: { passwordHash: { startsWith: \"secret\" } } }) { nodes { subject } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("printer");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("printer", Adr);
     }
 
     [Test]
@@ -93,7 +99,7 @@ public class QueryModelFilterSortFieldSetTests
             "{ discover { fieldSetTickets(order: [{ account: { passwordHash: ASC } }]) { nodes { subject } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("printer");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("printer", Adr);
     }
 
     [Test]
@@ -107,7 +113,7 @@ public class QueryModelFilterSortFieldSetTests
             "{ discover { fieldSetTickets(where: { assignee: { pinCode: { eq: \"1234\" } } }) { nodes { subject } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("printer");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("printer", Adr);
     }
 
     [Test]

@@ -30,6 +30,7 @@ namespace Trax.Api.GraphQL.Authorization;
 /// the <c>@authorize</c> middleware makes. A refusal produces the error that middleware produces.
 /// Inputs the caller did not use cost nothing, so reading a gated type stays a matter of
 /// selecting it, as it was.
+/// See <c>docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md</c>.
 /// </para>
 /// </remarks>
 internal static class NavigationInputAuthorization

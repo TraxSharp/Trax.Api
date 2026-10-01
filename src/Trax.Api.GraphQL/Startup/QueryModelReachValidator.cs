@@ -88,7 +88,8 @@ internal sealed class QueryModelReachValidator(
 
         throw new InvalidOperationException(
             $"{messages.Count} entit{(messages.Count == 1 ? "y" : "ies")} reached from a "
-                + "[TraxQueryModel] declare no usable authorization posture:"
+                + "[TraxQueryModel] declare no usable authorization posture (see "
+                + "docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md):"
                 + Environment.NewLine
                 + Environment.NewLine
                 + string.Join(Environment.NewLine + Environment.NewLine, messages)

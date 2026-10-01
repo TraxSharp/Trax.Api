@@ -21,12 +21,16 @@ namespace Trax.Api.Tests;
 /// <summary>
 /// Every entity a query model reaches, through its object type or its filter and sort inputs,
 /// declares its authorization posture, and the host refuses to start naming the navigation when
-/// one does not.
+/// one does not. Guard for <c>docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md</c>.
 /// </summary>
 [Property("adr", "docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md")]
 [TestFixture]
 public class QueryModelNavigationPostureTests
 {
+    private const string Adr =
+        "docs/adr/0025-every-entity-a-query-model-reaches-declares-its-posture.md: every entity a "
+        + "query model reaches declares its posture";
+
     [Test]
     public async Task The_refusal_names_the_entity_and_every_navigation_that_reaches_it()
     {
@@ -34,7 +38,7 @@ public class QueryModelNavigationPostureTests
 
         var ex = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
         ex.Message.Should()
-            .Contain(typeof(NavAccount).FullName!)
+            .Contain(typeof(NavAccount).FullName!, Adr)
             .And.Contain("'NavPost.account'")
             .And.Contain("'NavPostFilterInput.account'")
             .And.Contain("'NavPostSortInput.account'")
@@ -74,7 +78,7 @@ public class QueryModelNavigationPostureTests
             "{ discover { gatedPosts { nodes { title owner { apiToken } } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("tok_live");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("tok_live", Adr);
     }
 
     [Test]
@@ -88,7 +92,7 @@ public class QueryModelNavigationPostureTests
             "{ discover { gatedPosts(where: { owner: { apiToken: { startsWith: \"tok_live\" } } }) { nodes { title } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("hello");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("hello", Adr);
     }
 
     [Test]
@@ -126,7 +130,7 @@ public class QueryModelNavigationPostureTests
             "{ discover { gatedPosts(order: [{ owner: { apiToken: ASC } }]) { nodes { title } } } }"
         );
 
-        json.Should().Contain("\"errors\"").And.NotContain("hello");
+        json.Should().Contain("\"errors\"", Adr).And.NotContain("hello", Adr);
     }
 
     [Test]
