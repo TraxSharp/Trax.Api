@@ -248,9 +248,10 @@ public static class GraphQLServiceExtensions
         // Wire HotChocolate's @authorize directive handler whenever an @authorize can reach the
         // schema. The directive runs against ASP.NET Core's IAuthorizationService, so RequireRole
         // and policy definitions registered via services.AddAuthorization(...) apply. Wiring is
-        // conditional so the dependency stays opt-in for hosts with nothing gated: the interceptor
-        // resolves IAuthenticationSchemeProvider, which a host that never called AddAuthentication()
-        // does not have.
+        // conditional so a host with nothing gated takes on no authorization services. A host that
+        // never called AddAuthentication() still serves a gated or [TraxAllowAnonymous] field: the
+        // HTTP interceptor looks IAuthenticationSchemeProvider up optionally and treats its absence
+        // as an anonymous caller.
         //
         // These can put one in the schema: a [TraxAuthorize] query model or navigation target,
         // an operations gate (GateOperations(...) or GateOperationsToAuthenticatedUsers()),
