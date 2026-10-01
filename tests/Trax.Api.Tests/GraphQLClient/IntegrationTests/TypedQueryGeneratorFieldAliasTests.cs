@@ -61,9 +61,7 @@ public class TypedQueryGeneratorFieldAliasTests
     {
         var act = () => new BadAliasPlayerRequest { Id = "player-1" }.Query;
 
-        act.Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*DisplayName*display-name*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*DisplayName*display-name*");
     }
 }
 
@@ -84,8 +82,10 @@ public sealed class AliasedPlayerRequest : TypedRequest<AliasedPlayer>
 [GraphQLType("Player")]
 public sealed record BadAliasPlayer(
     string Id,
-    [property: GraphQLField("name"),
-        System.Text.Json.Serialization.JsonPropertyName("display-name")]
+    [property:
+        GraphQLField("name"),
+        System.Text.Json.Serialization.JsonPropertyName("display-name")
+    ]
         string DisplayName
 );
 

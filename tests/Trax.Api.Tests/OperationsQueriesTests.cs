@@ -1803,7 +1803,10 @@ public class OperationsQueriesTests
         schema
             .Select(p => p.Name)
             .Should()
-            .BeEquivalentTo(["playerId", "nickname", "bonus"], "only Condition = Always hides a property from the reader");
+            .BeEquivalentTo(
+                ["playerId", "nickname", "bonus"],
+                "only Condition = Always hides a property from the reader"
+            );
     }
 
     public record IgnoreConditionInput(

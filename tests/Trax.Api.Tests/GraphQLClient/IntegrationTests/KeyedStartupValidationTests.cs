@@ -105,18 +105,33 @@ public class KeyedStartupValidationTests
     [Test]
     public void A_request_belongs_to_the_client_its_attribute_names()
     {
-        GraphQLClientAttribute.BelongsTo(typeof(KeyedPlayersProbeRequest), PlayersKey).Should().BeTrue();
-        GraphQLClientAttribute.BelongsTo(typeof(KeyedPlayersProbeRequest), TraxKey).Should().BeFalse();
+        GraphQLClientAttribute
+            .BelongsTo(typeof(KeyedPlayersProbeRequest), PlayersKey)
+            .Should()
+            .BeTrue();
+        GraphQLClientAttribute
+            .BelongsTo(typeof(KeyedPlayersProbeRequest), TraxKey)
+            .Should()
+            .BeFalse();
         GraphQLClientAttribute.BelongsTo(typeof(KeyedPlayersProbeRequest), null).Should().BeFalse();
         GraphQLClientAttribute.BelongsTo(typeof(UnmarkedProbeRequest), null).Should().BeTrue();
-        GraphQLClientAttribute.BelongsTo(typeof(UnmarkedProbeRequest), PlayersKey).Should().BeFalse();
+        GraphQLClientAttribute
+            .BelongsTo(typeof(UnmarkedProbeRequest), PlayersKey)
+            .Should()
+            .BeFalse();
     }
 
     [Test]
     public void A_non_string_key_matches_by_value()
     {
-        GraphQLClientAttribute.BelongsTo(typeof(EnumKeyedProbeRequest), ProbeServer.Billing).Should().BeTrue();
-        GraphQLClientAttribute.BelongsTo(typeof(EnumKeyedProbeRequest), "Billing").Should().BeFalse();
+        GraphQLClientAttribute
+            .BelongsTo(typeof(EnumKeyedProbeRequest), ProbeServer.Billing)
+            .Should()
+            .BeTrue();
+        GraphQLClientAttribute
+            .BelongsTo(typeof(EnumKeyedProbeRequest), "Billing")
+            .Should()
+            .BeFalse();
     }
 }
 
