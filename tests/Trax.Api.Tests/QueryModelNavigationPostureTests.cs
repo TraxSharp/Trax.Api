@@ -78,6 +78,58 @@ public class QueryModelNavigationPostureTests
     }
 
     [Test]
+    public async Task A_target_gated_on_its_class_refuses_an_anonymous_filter_through_the_navigation()
+    {
+        var (provider, executor) = await StartAsync<GatedTargetContext>();
+        await using var _ = provider;
+
+        var json = await RunAsync(
+            executor,
+            "{ discover { gatedPosts(where: { owner: { apiToken: { startsWith: \"tok_live\" } } }) { nodes { title } } } }"
+        );
+
+        json.Should().Contain("\"errors\"").And.NotContain("hello");
+    }
+
+    [Test]
+    public async Task A_target_gated_on_its_class_refuses_an_anonymous_filter_passed_as_a_variable()
+    {
+        var (provider, executor) = await StartAsync<GatedTargetContext>();
+        await using var _ = provider;
+
+        var result = await executor.ExecuteAsync(
+            OperationRequestBuilder
+                .New()
+                .SetDocument(
+                    "query($p: String) { discover { gatedPosts(where: { owner: { apiToken: { startsWith: $p } } }) { nodes { title } } } }"
+                )
+                .SetVariableValues(new Dictionary<string, object?> { ["p"] = "tok_live" })
+                .Build()
+        );
+
+        result
+            .ExpectOperationResult()
+            .ToJson()
+            .Should()
+            .Contain("\"errors\"")
+            .And.NotContain("hello");
+    }
+
+    [Test]
+    public async Task A_target_gated_on_its_class_refuses_an_anonymous_sort_through_the_navigation()
+    {
+        var (provider, executor) = await StartAsync<GatedTargetContext>();
+        await using var _ = provider;
+
+        var json = await RunAsync(
+            executor,
+            "{ discover { gatedPosts(order: [{ owner: { apiToken: ASC } }]) { nodes { title } } } }"
+        );
+
+        json.Should().Contain("\"errors\"").And.NotContain("hello");
+    }
+
+    [Test]
     public async Task A_target_declaring_both_markers_is_refused()
     {
         var act = () => StartAsync<ConflictedTargetContext>();

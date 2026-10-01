@@ -12,6 +12,7 @@ using HotChocolate.Types.Descriptors;
 using HotChocolate.Types.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Trax.Api.GraphQL.Authorization;
 using Trax.Api.GraphQL.Configuration;
 using Trax.Api.GraphQL.Projection;
 using Trax.Api.GraphQL.Queries;
@@ -165,8 +166,10 @@ internal sealed class QueryModelTypeModule(GraphQLConfiguration configuration) :
         // `pageInfo.hasNextPage` never resolves a node of the entity type,
         // so the type-level directive does not fire. Field-level enforcement
         // blocks the entry point unconditionally; type-level enforcement
-        // (in CreateObjectType) covers transitive navigation from ungated
-        // parents.
+        // (in CreateObjectType) covers the type wherever a navigation from an
+        // ungated parent selects it. A navigation used only inside where or
+        // order selects nothing, so NavigationInputAuthorization (below)
+        // evaluates the same directives for it.
         //
         // [TraxAllowAnonymous] short-circuits both gates: the entity is
         // explicitly anonymous-readable, so emitting @authorize on its entry
@@ -176,6 +179,12 @@ internal sealed class QueryModelTypeModule(GraphQLConfiguration configuration) :
         // mutually exclusive with the directive emission below.
         if (!reg.AllowAnonymous)
             AuthorizeDirectives.Apply(field, reg.AuthorizeAttributes);
+
+        // A gated type reached through a navigation in the caller's where or order is
+        // authorized as if it were selected. Registered first so it runs before paging,
+        // filtering and sorting touch the database.
+        if (attr.Filtering || attr.Sorting)
+            field.Use(NavigationInputAuthorization.Create(typeof(TEntity)));
 
         // Apply features in the correct middleware pipeline order:
         // Paging > Projection > Filtering > Sorting
