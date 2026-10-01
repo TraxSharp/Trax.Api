@@ -1743,6 +1743,35 @@ public class OperationsQueriesTests
         schema.Single(p => p.Name == "playerId").EnumValues.Should().BeNull();
     }
 
+    [Test]
+    public void GetTrains_InputSchema_ListsConditionallyIgnoredPropertiesTheReaderAccepts()
+    {
+        var discovery =
+            NSubstitute.Substitute.For<Trax.Mediator.Services.TrainDiscovery.ITrainDiscoveryService>();
+        var registration = FakeRegistration(typeof(IUserTrain), typeof(IgnoreConditionInput));
+        NSubstitute.SubstituteExtensions.Returns(discovery.DiscoverTrains(), [registration]);
+
+        var schema = new OperationsQueries().GetTrains(discovery).Single().InputSchema;
+
+        schema
+            .Select(p => p.Name)
+            .Should()
+            .BeEquivalentTo(["playerId", "nickname", "bonus"], "only Condition = Always hides a property from the reader");
+    }
+
+    public record IgnoreConditionInput(
+        string PlayerId,
+        [property: System.Text.Json.Serialization.JsonIgnore(
+            Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        )]
+            string? Nickname,
+        [property: System.Text.Json.Serialization.JsonIgnore(
+            Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault
+        )]
+            int Bonus,
+        [property: System.Text.Json.Serialization.JsonIgnore] string? Internal
+    );
+
     public enum SchemaTier
     {
         Bronze,

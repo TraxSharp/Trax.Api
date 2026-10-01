@@ -784,7 +784,13 @@ public class OperationsQueries
         var options = TraxEffectConfiguration.StaticSystemJsonSerializerOptions;
         return inputType
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanRead && p.GetCustomAttribute<JsonIgnoreAttribute>() is null)
+            // Only Condition = Always keeps the reader from accepting a property; the other
+            // conditions affect writing only.
+            .Where(p =>
+                p.CanRead
+                && p.GetCustomAttribute<JsonIgnoreAttribute>()?.Condition
+                    != JsonIgnoreCondition.Always
+            )
             .Select(p => new InputPropertySchema(
                 JsonName(p, options),
                 GetFriendlyTypeName(p.PropertyType),
