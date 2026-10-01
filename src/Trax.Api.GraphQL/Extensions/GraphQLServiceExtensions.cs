@@ -686,9 +686,10 @@ public static class GraphQLServiceExtensions
             SchemaName
         ));
 
-        // G7 — HTTP execution authorization. Wired when the builder opted in via
-        // RequireAuthorization(). The interceptor only runs for GraphQL execution
-        // requests, so the BCP tool page and schema introspection stay reachable.
+        // G7 — endpoint authorization. Wired when the builder opted in via
+        // RequireAuthorization(). The HTTP interceptor authenticates with the policy's schemes;
+        // the request middleware below is the only place the policy refuses an operation, so a refused request
+        // runs inside execution and the diagnostic listeners (the audit trail) see it.
         if (config.AuthorizationRequired)
         {
             services.AddAuthorization();
