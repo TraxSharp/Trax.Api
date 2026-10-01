@@ -327,6 +327,7 @@ namespace Trax.Api.DTOs
         public string? HostName { get; init; }
         public long MetadataId { get; init; }
         public string? Output { get; init; }
+        public long Sequence { get; init; }
         public System.DateTime Timestamp { get; init; }
         public string TrainName { get; init; }
         public Trax.Effect.Enums.TrainState TrainState { get; init; }

@@ -32,7 +32,7 @@ public class SubscriptionAuthorizationTests
         "docs/adr/0011-subscriptions-carry-the-authorization-of-the-data-they-stream.md";
 
     private const string LifecycleQuery =
-        "subscription { onTrainCompleted { trainName failureReason hostName output } }";
+        "subscription { onTrainCompleted { sequence trainName failureReason hostName output } }";
     private const string DataChangedQuery = "subscription { onDataChanged { domain } }";
 
     public interface IAdminOnlyTrain;
@@ -106,6 +106,7 @@ public class SubscriptionAuthorizationTests
         received["trainName"].Should().Be("Some.Unbroadcast.Train");
         received["failureReason"].Should().Be("db at 10.0.0.5 refused");
         received["hostName"].Should().Be("worker-1");
+        received["sequence"].Should().Be(1L, "the first event a subscription delivers is number 1");
     }
 
     #endregion
