@@ -15,6 +15,7 @@ using Trax.Effect.Attributes;
 using Trax.Effect.Configuration.TraxBuilder;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
+using Trax.Scheduler.Services.JobSubmitter;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
@@ -88,6 +89,7 @@ public class TypeExtensionExposureTests
                     Substitute.For<Trax.Mediator.Services.TrainExecution.ITrainExecutionService>()
                 );
                 services.AddScoped(_ => Substitute.For<ITraxScheduler>());
+                services.AddScoped(_ => Substitute.For<IJobSubmitter>());
             })
             .Build();
 

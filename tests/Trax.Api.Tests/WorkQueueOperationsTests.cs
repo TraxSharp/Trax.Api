@@ -1,6 +1,3 @@
-using Trax.Scheduler.Configuration;
-using Trax.Mediator.Services.TrainExecution;
-using Trax.Mediator.Services.TrainDiscovery;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +15,9 @@ using Trax.Effect.Models.Metadata.DTOs;
 using Trax.Effect.Models.WorkQueue;
 using Trax.Effect.Models.WorkQueue.DTOs;
 using Trax.Effect.Services.ChangeSignal;
+using Trax.Mediator.Services.TrainDiscovery;
+using Trax.Mediator.Services.TrainExecution;
+using Trax.Scheduler.Configuration;
 using Trax.Scheduler.Services.Operations;
 
 namespace Trax.Api.Tests;

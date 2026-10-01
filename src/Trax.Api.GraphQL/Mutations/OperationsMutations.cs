@@ -282,7 +282,7 @@ public class OperationsMutations
     }
 
     private static OperationResponse ToResponse(OperationResult result) =>
-        new(result.Success, result.Count, result.Message);
+        new(result.Success, result.Count, result.Message) { Id = result.Id };
 
     private static bool IsTruncatedPlaceholder(string input)
     {

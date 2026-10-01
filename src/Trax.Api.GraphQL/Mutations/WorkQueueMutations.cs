@@ -4,7 +4,7 @@ using Trax.Scheduler.Services.Operations;
 namespace Trax.Api.GraphQL.Mutations;
 
 /// <summary>
-/// Mutations for the work queue: queue a train for execution and cancel queued entries.
+/// Mutations for the work queue: queue a train for execution, run one now, and cancel queued entries.
 /// Thin wrappers around <see cref="IOperationsService"/>, which the dashboard also calls. Both
 /// share validation and the enqueue path; the train's own authorization applies here, while the
 /// dashboard enqueues as the admin surface its host gates (see docs/0017).
@@ -23,6 +23,25 @@ public class WorkQueueMutations
         var result = await operationsService.QueueTrainAsync(input, ct);
         return ToResponse(result);
     }
+
+    /// <summary>
+    /// Runs a train now, through the same <see cref="IOperationsService.RunTrainAsync"/> call as
+    /// the dashboard's Run dialog: its Pending execution row is written and handed to the job
+    /// submitter the train is routed to, skipping the work queue. The train's own authorization
+    /// applies, as for <see cref="QueueTrain"/>.
+    /// </summary>
+    /// <remarks>
+    /// A refusal is <c>success: false</c> with a message and writes nothing: an unknown train,
+    /// invalid or oversized input, or a refusal the train itself makes. A caller who may not run
+    /// the train gets the <c>TRAX_AUTHORIZATION</c> GraphQL error. A failure to submit the run,
+    /// which marks its row Failed, is a masked GraphQL error, as any server failure is.
+    /// On success <c>id</c> is the execution's metadata id, not a work queue id.
+    /// </remarks>
+    public async Task<OperationResponse> RunTrain(
+        RunTrainInput input,
+        [Service] IOperationsService operationsService,
+        CancellationToken ct
+    ) => ToResponse(await operationsService.RunTrainAsync(input, ct));
 
     /// <summary>
     /// Cancels a queued work queue entry. Only entries with status <c>Queued</c> can be
@@ -51,5 +70,5 @@ public class WorkQueueMutations
     ) => ToResponse(await operationsService.CancelWorkQueueEntriesAsync(ids, ct));
 
     private static OperationResponse ToResponse(OperationResult result) =>
-        new(result.Success, result.Count, result.Message);
+        new(result.Success, result.Count, result.Message) { Id = result.Id };
 }

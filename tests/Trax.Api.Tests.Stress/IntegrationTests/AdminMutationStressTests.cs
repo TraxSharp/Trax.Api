@@ -348,6 +348,36 @@ public class AdminMutationStressTests : StressTestSetup
     }
 
     [Test]
+    public async Task RunTrain_AtScale_WithinBudget()
+    {
+        // A run writes its Pending metadata row, then hands it to the default submitter, which
+        // writes a background job. Both inserts land on tables of millions of rows. The seed
+        // names no probe-train runs, so removing those afterwards leaves the seed as it was.
+        Task RemoveProbeRuns() =>
+            ExecSqlAsync(
+                "DELETE FROM trax.background_job WHERE metadata_id IN "
+                    + $"(SELECT id FROM trax.metadata WHERE name = '{ProbeTrainName}'); "
+                    + $"DELETE FROM trax.metadata WHERE name = '{ProbeTrainName}'"
+            );
+
+        await MeasureWriteAsync(
+            "operations.workQueue.runTrain",
+            ListBudget,
+            RemoveProbeRuns,
+            async (sp, ct) =>
+            {
+                var response = await new WorkQueueMutations().RunTrain(
+                    new RunTrainInput(ProbeTrainName, "{\"Value\":\"stress\"}"),
+                    Operations(sp),
+                    ct
+                );
+                response.Success.Should().BeTrue(response.Message);
+                response.Id.Should().BeGreaterThan(Profile.Metadata, "the id is the new run's");
+            }
+        );
+    }
+
+    [Test]
     public async Task CancelWorkQueueEntry_AtScale_WithinBudget()
     {
         await MeasureWriteAsync(

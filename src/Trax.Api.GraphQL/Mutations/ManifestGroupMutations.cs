@@ -49,5 +49,5 @@ public class ManifestGroupMutations
     ) => ToResponse(await operationsService.SetAllManifestGroupsEnabledAsync(enabled, ct));
 
     private static OperationResponse ToResponse(OperationResult result) =>
-        new(result.Success, result.Count, result.Message);
+        new(result.Success, result.Count, result.Message) { Id = result.Id };
 }

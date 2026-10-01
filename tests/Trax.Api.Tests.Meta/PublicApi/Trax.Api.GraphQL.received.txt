@@ -187,6 +187,7 @@ namespace Trax.Api.GraphQL.Mutations
         public System.Threading.Tasks.Task<Trax.Api.DTOs.OperationResponse> CancelWorkQueueEntries(long[] ids, [HotChocolate.Service] Trax.Scheduler.Services.Operations.IOperationsService operationsService, System.Threading.CancellationToken ct) { }
         public System.Threading.Tasks.Task<Trax.Api.DTOs.OperationResponse> CancelWorkQueueEntry(long id, [HotChocolate.Service] Trax.Scheduler.Services.Operations.IOperationsService operationsService, System.Threading.CancellationToken ct) { }
         public System.Threading.Tasks.Task<Trax.Api.DTOs.OperationResponse> QueueTrain(Trax.Scheduler.Services.Operations.QueueTrainInput input, [HotChocolate.Service] Trax.Scheduler.Services.Operations.IOperationsService operationsService, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task<Trax.Api.DTOs.OperationResponse> RunTrain(Trax.Scheduler.Services.Operations.RunTrainInput input, [HotChocolate.Service] Trax.Scheduler.Services.Operations.IOperationsService operationsService, System.Threading.CancellationToken ct) { }
     }
 }
 namespace Trax.Api.GraphQL.Queries

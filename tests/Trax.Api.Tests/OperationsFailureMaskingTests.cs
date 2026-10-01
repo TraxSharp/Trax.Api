@@ -19,7 +19,9 @@ using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
 using Trax.Mediator.Services.TrainExecution;
+using Trax.Mediator.Services.TrustedExecution;
 using Trax.Scheduler.Configuration;
+using Trax.Scheduler.Services.JobSubmitter;
 using Trax.Scheduler.Services.Operations;
 using Trax.Scheduler.Services.TraxScheduler;
 
@@ -52,7 +54,7 @@ public class OperationsFailureMaskingTests
             )
             .ThrowsAsync(new NpgsqlException($"Failed to connect to {UnreachableHost}:5432"));
 
-        using var host = await StartHostAsync(execution);
+        using var host = await StartHostAsync(execution, new RecordingSubmitter());
 
         var doc = await AdminOperationsAuthorizationTests.PostAsync(
             host,
@@ -81,7 +83,7 @@ public class OperationsFailureMaskingTests
         await host.StopAsync();
     }
 
-    internal static TrainRegistration Registration() =>
+    internal static TrainRegistration Registration(IReadOnlyList<string>? requiredRoles = null) =>
         new()
         {
             ServiceType = typeof(IMaskedTrain),
@@ -94,7 +96,8 @@ public class OperationsFailureMaskingTests
             InputTypeName = nameof(MaskedInput),
             OutputTypeName = nameof(Unit),
             RequiredPolicies = [],
-            RequiredRoles = [],
+            RequiredRoles = requiredRoles ?? [],
+            HasAuthorizeAttribute = requiredRoles is not null,
             IsQuery = false,
             IsMutation = false,
             IsRemote = false,
@@ -102,11 +105,16 @@ public class OperationsFailureMaskingTests
             GraphQLOperations = GraphQLOperation.Run,
         };
 
-    private static async Task<IHost> StartHostAsync(ITrainExecutionService execution)
+    internal static async Task<IHost> StartHostAsync(
+        ITrainExecutionService execution,
+        IJobSubmitter submitter,
+        TrainRegistration? registration = null,
+        IDataContextProviderFactory? dataContextFactory = null
+    )
     {
         var discovery = Substitute.For<ITrainDiscoveryService>();
-        discovery.DiscoverTrains().Returns([Registration()]);
-        IDataContextProviderFactory dataContextFactory = new InMemoryContextProviderFactory(
+        discovery.DiscoverTrains().Returns([registration ?? Registration()]);
+        dataContextFactory ??= new InMemoryContextProviderFactory(
             new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot()
         );
 
@@ -135,6 +143,9 @@ public class OperationsFailureMaskingTests
                         services.AddScoped(_ => Substitute.For<ITraxHealthService>());
                         services.AddScoped(_ => Substitute.For<ITraxScheduler>());
                         services.AddScoped(_ => execution);
+                        services.AddScoped(_ => submitter);
+                        // What AddMediator registers: the API's train authorization consults it.
+                        services.AddScoped(_ => Substitute.For<ITrustedExecutionScope>());
                         services.AddScoped<IOperationsService>(sp => new OperationsService(
                             discovery,
                             dataContextFactory,
@@ -157,9 +168,29 @@ public class OperationsFailureMaskingTests
         return host;
     }
 
+    /// <summary>
+    /// A job submitter that records what it was handed, or fails the way an unreachable worker
+    /// does. A class rather than a substitute, because the run calls one of the interface's
+    /// default methods.
+    /// </summary>
+    internal sealed class RecordingSubmitter(Exception? failWith = null) : IJobSubmitter
+    {
+        public List<long> Submitted { get; } = [];
+
+        public Task<string> EnqueueAsync(long metadataId) => EnqueueAsync(metadataId, new object());
+
+        public Task<string> EnqueueAsync(long metadataId, object input)
+        {
+            if (failWith is not null)
+                throw failWith;
+            Submitted.Add(metadataId);
+            return Task.FromResult($"job-{metadataId}");
+        }
+    }
+
     internal interface IMaskedTrain;
 
-    private sealed class MaskedTrain : IMaskedTrain;
+    internal sealed class MaskedTrain : IMaskedTrain;
 
     internal sealed record MaskedInput(string? Value = null);
 }
