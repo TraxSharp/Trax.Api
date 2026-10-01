@@ -37,10 +37,13 @@ public partial class TrainTypeModule(
     {
         var registrations = discoveryService.DiscoverTrains();
         var types = new List<ITypeSystemMember>();
-        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var trainNames = AssignTrainNames(registrations);
         var usedInputTypes = new HashSet<Type>();
         var usedOutputTypes = new HashSet<Type>();
         var mutationFields = new List<(TrainRegistration Registration, string TrainName)>();
+        var responseTypeNames = new Dictionary<TrainRegistration, string>(
+            ReferenceEqualityComparer.Instance
+        );
         var queryFields = new List<(TrainRegistration Registration, string TrainName)>();
         var needsExecutionModeEnum = false;
 
@@ -74,13 +77,7 @@ public partial class TrainTypeModule(
                 );
             }
 
-            // Derive a unique GraphQL name — fall back to fully-qualified name on collision
-            var trainName = reg.GraphQLName ?? DeriveTrainName(reg.ServiceTypeName);
-            if (!usedNames.Add(trainName))
-            {
-                trainName = DeriveTrainName(reg.ServiceType.FullName ?? reg.ServiceTypeName);
-                usedNames.Add(trainName);
-            }
+            var trainName = trainNames[reg];
 
             // Register HotChocolate InputObjectType / ObjectType once per CLR type.
             // Skip Unit — it has no properties, so InputObjectType<Unit> is invalid in HotChocolate.
@@ -114,6 +111,7 @@ public partial class TrainTypeModule(
                     ? $"{trainName}MutationResponse"
                     : defaultResponseName;
                 types.Add(BuildResponseType(responseTypeName, reg));
+                responseTypeNames[reg] = responseTypeName;
 
                 if (
                     reg.GraphQLOperations.HasFlag(GraphQLOperation.Run)
@@ -145,7 +143,12 @@ public partial class TrainTypeModule(
                 })
             );
 
-            AddGroupedFields(types, mutationFields, "DispatchMutations", AddMutationField);
+            AddGroupedFields(
+                types,
+                mutationFields,
+                "DispatchMutations",
+                (d, reg, name) => AddMutationField(d, reg, name, responseTypeNames[reg])
+            );
         }
 
         // Register DiscoverQueries type + extend RootQuery with a "discover" field.
@@ -174,6 +177,65 @@ public partial class TrainTypeModule(
         }
 
         return new ValueTask<IReadOnlyCollection<ITypeSystemMember>>(types);
+    }
+
+    /// <summary>
+    /// Gives every exposed train its GraphQL name: the attribute's <c>Name</c>, or one derived
+    /// from the interface name (<c>ICreatePlayerTrain</c> becomes <c>CreatePlayer</c>). Two
+    /// trains whose names would produce the same field in the same place (the same root and
+    /// namespace), or two mutation trains that would produce the same response type, refuse the
+    /// schema, naming both trains, so the host sets <c>Name</c> on one of them. A name is never
+    /// chosen silently on a train's behalf. See docs/adr/0001-a-misconfigured-host-fails-at-startup.md.
+    /// </summary>
+    internal static Dictionary<TrainRegistration, string> AssignTrainNames(
+        IEnumerable<TrainRegistration> registrations
+    )
+    {
+        var names = new Dictionary<TrainRegistration, string>(ReferenceEqualityComparer.Instance);
+        var fieldOwners = new Dictionary<string, TrainRegistration>(
+            StringComparer.OrdinalIgnoreCase
+        );
+        var responseOwners = new Dictionary<string, TrainRegistration>(
+            StringComparer.OrdinalIgnoreCase
+        );
+        var clashes = new List<string>();
+
+        foreach (var reg in registrations)
+        {
+            if (!reg.IsQuery && !reg.IsMutation)
+                continue;
+
+            var trainName = reg.GraphQLName ?? DeriveTrainName(reg.ServiceTypeName);
+            names[reg] = trainName;
+
+            var parent = reg.IsQuery ? "discover" : "dispatch";
+            var place = reg.GraphQLNamespace is { } ns ? $"{parent} {{ {CamelCase(ns)} }}" : parent;
+            var fieldName = CamelCase(trainName);
+
+            if (!fieldOwners.TryAdd($"{place}/{fieldName}", reg))
+            {
+                clashes.Add(
+                    $"'{fieldOwners[$"{place}/{fieldName}"].ServiceType.FullName}' and "
+                        + $"'{reg.ServiceType.FullName}' both map to the field '{fieldName}' under {place}"
+                );
+                continue;
+            }
+
+            if (reg.IsMutation && !responseOwners.TryAdd(trainName, reg))
+                clashes.Add(
+                    $"'{responseOwners[trainName].ServiceType.FullName}' and "
+                        + $"'{reg.ServiceType.FullName}' both map to the response type '{trainName}Response'"
+                );
+        }
+
+        if (clashes.Count > 0)
+            throw new InvalidOperationException(
+                "Two exposed trains map to the same GraphQL name: "
+                    + string.Join("; ", clashes)
+                    + ". Set Name on [TraxQuery] or [TraxMutation] to give one of them its own name."
+            );
+
+        return names;
     }
 
     /// <summary>
