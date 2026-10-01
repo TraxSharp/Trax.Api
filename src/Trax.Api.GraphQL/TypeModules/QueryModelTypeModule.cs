@@ -189,61 +189,24 @@ internal sealed class QueryModelTypeModule(GraphQLConfiguration configuration) :
         if (attr.Projection)
             field.Use(QueryModelProjection.CreateMiddleware<TEntity>());
 
+        // Filtering and sorting follow the exposed field set: the input types are bound to the
+        // entity in the conventions (see GraphQLServiceExtensions), so a model's own entry field
+        // and every navigation reaching it from another model offer the same fields its object
+        // type does.
         if (attr.Filtering)
         {
             if (reg.FilterInputType is not null)
-            {
                 field.UseFiltering(reg.FilterInputType);
-            }
-            else if (attr.ExposeAs is { } exposeAs)
-            {
-                // Restrict the auto-generated filter input type to the
-                // interface's property set so consumers cannot filter on
-                // hidden navigation properties.
-                var allowedProps = GetExposedEntityProperties<TEntity>(exposeAs);
-                field.UseFiltering<TEntity>(descriptor =>
-                {
-                    descriptor.BindFieldsExplicitly();
-                    foreach (var prop in allowedProps)
-                    {
-                        var selector = BuildPropertySelector<TEntity>(prop);
-                        FilterFieldGeneric
-                            .MakeGenericMethod(typeof(TEntity), prop.PropertyType)
-                            .Invoke(null, [descriptor, selector]);
-                    }
-                });
-            }
             else
-            {
-                field.UseFiltering<TEntity>();
-            }
+                field.UseFiltering<QueryModelFilterInputType<TEntity>>();
         }
 
         if (attr.Sorting)
         {
             if (reg.SortInputType is not null)
-            {
                 field.UseSorting(reg.SortInputType);
-            }
-            else if (attr.ExposeAs is { } exposeAs)
-            {
-                var allowedProps = GetExposedEntityProperties<TEntity>(exposeAs);
-                field.UseSorting<TEntity>(descriptor =>
-                {
-                    descriptor.BindFieldsExplicitly();
-                    foreach (var prop in allowedProps)
-                    {
-                        var selector = BuildPropertySelector<TEntity>(prop);
-                        SortFieldGeneric
-                            .MakeGenericMethod(typeof(TEntity), prop.PropertyType)
-                            .Invoke(null, [descriptor, selector]);
-                    }
-                });
-            }
             else
-            {
-                field.UseSorting<TEntity>();
-            }
+                field.UseSorting<QueryModelSortInputType<TEntity>>();
         }
 
         field.Resolve(ctx =>
@@ -326,43 +289,6 @@ internal sealed class QueryModelTypeModule(GraphQLConfiguration configuration) :
             if (!allowAnonymous)
                 AuthorizeDirectives.Apply(descriptor, authorizeAttributes);
         });
-    }
-
-    private static readonly MethodInfo FilterFieldGeneric = typeof(QueryModelTypeModule).GetMethod(
-        nameof(AddFilterField),
-        BindingFlags.NonPublic | BindingFlags.Static
-    )!;
-
-    private static readonly MethodInfo SortFieldGeneric = typeof(QueryModelTypeModule).GetMethod(
-        nameof(AddSortField),
-        BindingFlags.NonPublic | BindingFlags.Static
-    )!;
-
-    private static void AddFilterField<TEntity, TField>(
-        IFilterInputTypeDescriptor<TEntity> descriptor,
-        Expression<Func<TEntity, TField>> selector
-    ) => descriptor.Field(selector);
-
-    private static void AddSortField<TEntity, TField>(
-        ISortInputTypeDescriptor<TEntity> descriptor,
-        Expression<Func<TEntity, TField>> selector
-    ) => descriptor.Field(selector);
-
-    private static object BuildPropertySelector<TEntity>(PropertyInfo prop)
-    {
-        var param = Expression.Parameter(typeof(TEntity), "x");
-        var body = Expression.Property(param, prop);
-        var funcType = typeof(Func<,>).MakeGenericType(typeof(TEntity), prop.PropertyType);
-        return Expression.Lambda(funcType, body, param);
-    }
-
-    private static IReadOnlyList<PropertyInfo> GetExposedEntityProperties<TEntity>(Type exposeAs)
-    {
-        var allowed = GetExposedPropertyNames(exposeAs);
-        return typeof(TEntity)
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => allowed.Contains(p.Name))
-            .ToList();
     }
 
     /// <summary>

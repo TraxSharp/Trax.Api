@@ -339,23 +339,25 @@ public static class GraphQLServiceExtensions
                     services.AddHostedService<QueryModelScalarCollectionIndexValidator>();
                 }
 
-                if (config.FilterModules.Count > 0 || listElementBindings.Count > 0)
-                    graphqlBuilder.AddFiltering(convention =>
-                    {
-                        // Supplying a configure action replaces HotChocolate's default
-                        // convention wiring, so re-establish the stock operations and
-                        // queryable provider before layering the opt-in modules on top.
-                        convention.AddDefaults();
-                        ListElementFilterBinding.Apply(convention, listElementBindings);
-                        foreach (var module in config.FilterModules)
-                            module.Apply(convention);
-                    });
-                else
-                    graphqlBuilder.AddFiltering();
+                // Supplying a configure action replaces HotChocolate's default convention
+                // wiring, so re-establish the stock operations and queryable provider before
+                // layering Trax's bindings and the opt-in modules on top.
+                graphqlBuilder.AddFiltering(convention =>
+                {
+                    convention.AddDefaults();
+                    BindQueryModelFilterTypes(convention, config);
+                    ListElementFilterBinding.Apply(convention, listElementBindings);
+                    foreach (var module in config.FilterModules)
+                        module.Apply(convention);
+                });
             }
 
             if (config.ModelRegistrations.Any(r => r.Attribute.Sorting))
-                graphqlBuilder.AddSorting();
+                graphqlBuilder.AddSorting(convention =>
+                {
+                    convention.AddDefaults();
+                    BindQueryModelSortTypes(convention, config);
+                });
 
             if (config.ModelRegistrations.Any(r => r.Attribute.Projection))
             {
@@ -446,6 +448,38 @@ public static class GraphQLServiceExtensions
                 )
                 .Any(DeclaresPosture)
         );
+
+    /// <summary>
+    /// Binds every query model to its filter input, so a navigation from another model's filter
+    /// reaches the same input the model's own entry field uses: the host's override when it
+    /// supplied one, otherwise the input built from the model's exposed field set.
+    /// </summary>
+    private static void BindQueryModelFilterTypes(
+        HotChocolate.Data.Filters.IFilterConventionDescriptor convention,
+        GraphQLConfiguration config
+    )
+    {
+        foreach (var reg in config.ModelRegistrations.DistinctBy(r => r.EntityType))
+            convention.BindRuntimeType(
+                reg.EntityType,
+                reg.FilterInputType
+                    ?? typeof(QueryModelFilterInputType<>).MakeGenericType(reg.EntityType)
+            );
+    }
+
+    /// <summary>The sort counterpart of <see cref="BindQueryModelFilterTypes"/>.</summary>
+    private static void BindQueryModelSortTypes(
+        HotChocolate.Data.Sorting.ISortConventionDescriptor convention,
+        GraphQLConfiguration config
+    )
+    {
+        foreach (var reg in config.ModelRegistrations.DistinctBy(r => r.EntityType))
+            convention.BindRuntimeType(
+                reg.EntityType,
+                reg.SortInputType
+                    ?? typeof(QueryModelSortInputType<>).MakeGenericType(reg.EntityType)
+            );
+    }
 
     private static bool DeclaresPosture(MemberInfo member) =>
         member.IsDefined(typeof(TraxAuthorizeAttribute), inherit: true)
