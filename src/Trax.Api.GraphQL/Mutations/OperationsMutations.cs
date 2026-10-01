@@ -203,7 +203,8 @@ public class OperationsMutations
     /// Re-queues an execution: queues a fresh run of the same train with the input the execution
     /// recorded, mirroring the dashboard's Re-queue action. Fails without queueing when the
     /// execution does not exist, recorded no input, recorded only a truncated placeholder, or
-    /// recorded an input with <c>[TraxSensitive]</c> members masked.
+    /// recorded an input with <c>[TraxSensitive]</c> members masked. The new run replays the
+    /// decisions the execution recorded, so it takes the tracks the execution took.
     /// </summary>
     public async Task<OperationResponse> RequeueExecution(
         long id,
@@ -250,8 +251,10 @@ public class OperationsMutations
                     + "cannot be re-queued with what it ran with."
             );
 
+        // A re-queue repeats the run, so the new run replays the decisions this one recorded and
+        // takes the tracks it took, rather than asking its deciders again.
         var result = await operationsService.QueueTrainAsync(
-            new QueueTrainInput(meta.Name, meta.Input),
+            new QueueTrainInput(meta.Name, meta.Input) { ReplayDecisionsOf = id },
             ct
         );
         return ToResponse(result);
