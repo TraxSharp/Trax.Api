@@ -1,8 +1,4 @@
-using Microsoft.EntityFrameworkCore;
 using Trax.Api.DTOs;
-using Trax.Effect.Data.Services.IDataContextFactory;
-using Trax.Effect.Enums;
-using Trax.Effect.Services.ChangeSignal;
 using Trax.Scheduler.Services.Operations;
 
 namespace Trax.Api.GraphQL.Mutations;
@@ -43,35 +39,16 @@ public class WorkQueueMutations
     }
 
     /// <summary>
-    /// Cancels many queued entries in one round-trip. Only entries still in <c>Queued</c>
-    /// are affected; already-dispatched/cancelled ids are silently skipped. Returns the
-    /// number actually cancelled.
+    /// Cancels many queued entries in one statement. Only entries still in <c>Queued</c> are
+    /// affected; already-dispatched or cancelled ids are skipped. <c>count</c> is the number
+    /// actually cancelled, zero included. An empty list, or more than 1000 ids, returns
+    /// <c>success: false</c> and cancels nothing.
     /// </summary>
     public async Task<OperationResponse> CancelWorkQueueEntries(
         long[] ids,
-        [Service] IDataContextProviderFactory dataContextFactory,
-        [Service] ITraxChangeSignal changeSignal,
+        [Service] IOperationsService operationsService,
         CancellationToken ct
-    )
-    {
-        if (ids.Length == 0)
-            return new OperationResponse(true, Count: 0, Message: "No ids supplied.");
-
-        using var db = await dataContextFactory.CreateDbContextAsync(ct);
-
-        var cancelled = await db
-            .WorkQueues.Where(q => ids.Contains(q.Id) && q.Status == WorkQueueStatus.Queued)
-            .ExecuteUpdateAsync(s => s.SetProperty(q => q.Status, WorkQueueStatus.Cancelled), ct);
-
-        if (cancelled > 0)
-            changeSignal.Notify(ChangeDomain.WorkQueue);
-
-        return new OperationResponse(
-            true,
-            Count: cancelled,
-            Message: $"{cancelled} work queue entry(s) cancelled."
-        );
-    }
+    ) => ToResponse(await operationsService.CancelWorkQueueEntriesAsync(ids, ct));
 
     private static OperationResponse ToResponse(OperationResult result) =>
         new(result.Success, result.Count, result.Message);

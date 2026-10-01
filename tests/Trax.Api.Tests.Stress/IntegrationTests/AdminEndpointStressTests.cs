@@ -921,7 +921,7 @@ public class AdminEndpointStressTests : StressTestSetup
                 // ExecuteUpdate stays fast against the huge metadata table.
                 await new OperationsMutations().CancelExecution(
                     Profile.Metadata / 2,
-                    Factory(sp),
+                    Operations(sp),
                     ct
                 );
             }
@@ -938,8 +938,7 @@ public class AdminEndpointStressTests : StressTestSetup
             {
                 await new WorkQueueMutations().CancelWorkQueueEntries(
                     [1, 2, 3, 4, 5],
-                    Factory(sp),
-                    sp.GetRequiredService<ITraxChangeSignal>(),
+                    Operations(sp),
                     ct
                 );
             }

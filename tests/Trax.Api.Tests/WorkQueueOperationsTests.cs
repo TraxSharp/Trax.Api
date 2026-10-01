@@ -1,3 +1,6 @@
+using Trax.Scheduler.Configuration;
+using Trax.Mediator.Services.TrainExecution;
+using Trax.Mediator.Services.TrainDiscovery;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -109,8 +112,7 @@ public class WorkQueueOperationsTests
         var signal = new RecordingChangeSignal();
         var resp = await new WorkQueueMutations().CancelWorkQueueEntries(
             ids,
-            _factory,
-            signal,
+            OperationsSignalling(signal),
             default
         );
 
@@ -127,20 +129,30 @@ public class WorkQueueOperationsTests
     }
 
     [Test]
-    public async Task CancelWorkQueueEntries_EmptyIds_ReturnsZero()
+    public async Task CancelWorkQueueEntries_EmptyIds_IsRefusedAndSignalsNothing()
     {
         var signal = new RecordingChangeSignal();
         var resp = await new WorkQueueMutations().CancelWorkQueueEntries(
             [],
-            _factory,
-            signal,
+            OperationsSignalling(signal),
             default
         );
 
-        resp.Success.Should().BeTrue();
+        // The dashboard's batch cancel refuses an empty selection; the API answers the same.
+        resp.Success.Should().BeFalse();
         resp.Count.Should().Be(0);
+        resp.Message.Should().Be("No ids were given.");
         signal.Domains.Should().BeEmpty("nothing was cancelled, so no work-queue change fired");
     }
+
+    private IOperationsService OperationsSignalling(ITraxChangeSignal signal) =>
+        new OperationsService(
+            Substitute.For<ITrainDiscoveryService>(),
+            _factory,
+            new SchedulerConfiguration(),
+            Substitute.For<ITrainExecutionService>(),
+            changeSignal: signal
+        );
 
     #endregion
 

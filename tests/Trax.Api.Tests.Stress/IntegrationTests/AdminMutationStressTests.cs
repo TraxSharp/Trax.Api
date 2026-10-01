@@ -371,6 +371,138 @@ public class AdminMutationStressTests : StressTestSetup
 
     #endregion
 
+    #region Batch writes (one dashboard selection of at most OperationsService.MaxBatchSize ids)
+
+    /// <summary>A full batch of consecutive ids starting at <paramref name="first"/>.</summary>
+    private static long[] Batch(long first) =>
+        Enumerable.Range(0, OperationsService.MaxBatchSize).Select(i => first + i).ToArray();
+
+    private static string InList(long[] ids) => string.Join(',', ids);
+
+    [Test]
+    public async Task CancelExecutions_FullBatch_WithinBudget()
+    {
+        // The seed's state mix puts a pending or running run at every g % 9 of 6 and 7, so a
+        // mid-table block of a thousand ids flags about two hundred of them.
+        var ids = Batch(Profile.Metadata / 2);
+        await MeasureWriteAsync(
+            "operations.cancelExecutions (1000 ids)",
+            ListBudget,
+            () =>
+                ExecSqlAsync(
+                    $"UPDATE trax.metadata SET cancel_requested = false WHERE id IN ({InList(ids)})"
+                ),
+            async (sp, ct) =>
+            {
+                var response = await new OperationsMutations().CancelExecutions(
+                    ids,
+                    Operations(sp),
+                    ct
+                );
+                response.Success.Should().BeTrue(response.Message);
+                response.Count.Should().BeGreaterThan(0);
+            }
+        );
+    }
+
+    [Test]
+    public async Task CancelWorkQueueEntries_FullBatch_WithinBudget()
+    {
+        // The seed queues every work queue row with g % 4 == 3; restoring sets those back.
+        var ids = Batch(Profile.WorkQueue / 2);
+        await MeasureWriteAsync(
+            "operations.workQueue.cancelWorkQueueEntries (1000 ids)",
+            ListBudget,
+            () =>
+                ExecSqlAsync(
+                    $"UPDATE trax.work_queue SET status = 'queued' WHERE id IN ({InList(ids)}) "
+                        + "AND id % 4 = 3"
+                ),
+            async (sp, ct) =>
+            {
+                var response = await new WorkQueueMutations().CancelWorkQueueEntries(
+                    ids,
+                    Operations(sp),
+                    ct
+                );
+                response.Success.Should().BeTrue(response.Message);
+                response.Count.Should().BeGreaterThan(0);
+            }
+        );
+    }
+
+    [Test]
+    public async Task SetManifestsEnabled_FullBatch_WithinBudget()
+    {
+        var ids = Batch(Profile.Manifests / 2 - OperationsService.MaxBatchSize / 2);
+        await MeasureWriteAsync(
+            "operations.setManifestsEnabled (1000 ids)",
+            ListBudget,
+            () =>
+                ExecSqlAsync(
+                    $"UPDATE trax.manifest SET is_enabled = true WHERE id IN ({InList(ids)})"
+                ),
+            async (sp, ct) =>
+            {
+                var response = await new OperationsMutations().SetManifestsEnabled(
+                    ids,
+                    false,
+                    Operations(sp),
+                    ct
+                );
+                response.Count.Should().Be(ids.Length, response.Message);
+            }
+        );
+    }
+
+    [Test]
+    public async Task SetManifestGroupsEnabled_EveryGroup_WithinBudget()
+    {
+        var ids = Enumerable
+            .Range(1, Math.Min(Profile.Groups, OperationsService.MaxBatchSize))
+            .Select(i => (long)i)
+            .ToArray();
+        await MeasureWriteAsync(
+            "operations.manifestGroups.setManifestGroupsEnabled",
+            ListBudget,
+            () =>
+                ExecSqlAsync(
+                    $"UPDATE trax.manifest_group SET is_enabled = true WHERE id IN ({InList(ids)})"
+                ),
+            async (sp, ct) =>
+            {
+                var response = await new ManifestGroupMutations().SetManifestGroupsEnabled(
+                    ids,
+                    false,
+                    Operations(sp),
+                    ct
+                );
+                response.Count.Should().Be(ids.Length, response.Message);
+            }
+        );
+    }
+
+    [Test]
+    public async Task SetAllManifestGroupsEnabled_WithinBudget()
+    {
+        await MeasureWriteAsync(
+            "operations.manifestGroups.setAllManifestGroupsEnabled",
+            ListBudget,
+            () => ExecSqlAsync("UPDATE trax.manifest_group SET is_enabled = true"),
+            async (sp, ct) =>
+            {
+                var response = await new ManifestGroupMutations().SetAllManifestGroupsEnabled(
+                    false,
+                    Operations(sp),
+                    ct
+                );
+                response.Count.Should().Be(Profile.Groups, response.Message);
+            }
+        );
+    }
+
+    #endregion
+
     #region Dead letter writes (one row, or one dashboard selection)
 
     [Test]

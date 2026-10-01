@@ -145,32 +145,52 @@ public class OperationsMutations
     /// <summary>
     /// Requests cancellation of a single execution by id, when it is still pending or in
     /// progress. The request is durable: the process running the train sees it and ends the run
-    /// as Cancelled. <c>count</c> is 1 when the execution was flagged and 0 when it is already
-    /// finished or does not exist.
+    /// as Cancelled, and a run on this host is cancelled at once. <c>count</c> is 1 when the
+    /// execution was flagged; an execution that is already finished or does not exist returns
+    /// <c>success: false</c> with <c>count</c> 0.
     /// </summary>
     public async Task<OperationResponse> CancelExecution(
         long id,
-        [Service] IDataContextProviderFactory dataContextFactory,
+        [Service] IOperationsService operationsService,
         CancellationToken ct
     )
     {
-        using var db = await dataContextFactory.CreateDbContextAsync(ct);
+        var result = await operationsService.CancelExecutionsAsync([id], ct);
+        if (!result.Success)
+            return ToResponse(result);
 
-        var flagged = await db
-            .Metadatas.Where(m =>
-                m.Id == id
-                && (m.TrainState == TrainState.Pending || m.TrainState == TrainState.InProgress)
-            )
-            .ExecuteUpdateAsync(s => s.SetProperty(m => m.CancellationRequested, true), ct);
-
-        return new OperationResponse(
-            flagged > 0,
-            Count: flagged,
-            Message: flagged > 0
-                ? "Cancellation requested"
-                : $"Execution {id} is not cancellable (missing or already terminal)."
-        );
+        return result.Count > 0
+            ? new OperationResponse(true, Count: result.Count, Message: "Cancellation requested")
+            : new OperationResponse(
+                false,
+                Count: 0,
+                Message: $"Execution {id} is not cancellable (missing or already terminal)."
+            );
     }
+
+    /// <summary>
+    /// Requests cancellation of the listed executions, as <c>cancelExecution</c> does for one:
+    /// every one still pending or in progress is flagged, and finished or unknown ids are skipped.
+    /// <c>count</c> is the number flagged, zero included. An empty list, or more than 1000 ids,
+    /// returns <c>success: false</c> and flags nothing.
+    /// </summary>
+    public async Task<OperationResponse> CancelExecutions(
+        long[] ids,
+        [Service] IOperationsService operationsService,
+        CancellationToken ct
+    ) => ToResponse(await operationsService.CancelExecutionsAsync(ids, ct));
+
+    /// <summary>
+    /// Enables or disables the listed manifests by id. Only manifests whose flag differs are
+    /// written; <c>count</c> is the number changed, zero included. An empty list, or more than
+    /// 1000 ids, returns <c>success: false</c> and changes nothing.
+    /// </summary>
+    public async Task<OperationResponse> SetManifestsEnabled(
+        long[] ids,
+        bool enabled,
+        [Service] IOperationsService operationsService,
+        CancellationToken ct
+    ) => ToResponse(await operationsService.SetManifestsEnabledAsync(ids, enabled, ct));
 
     /// <summary>
     /// Re-queues an execution: queues a fresh run of the same train with the input the execution
@@ -217,7 +237,7 @@ public class OperationsMutations
             new QueueTrainInput(meta.Name, meta.Input),
             ct
         );
-        return new OperationResponse(result.Success, result.Count, result.Message);
+        return ToResponse(result);
     }
 
     /// <summary>
@@ -260,6 +280,9 @@ public class OperationsMutations
         changeSignal.Notify(ChangeDomain.Manifest);
         return new OperationResponse(true, Count: 1, Message: "Manifest updated");
     }
+
+    private static OperationResponse ToResponse(OperationResult result) =>
+        new(result.Success, result.Count, result.Message);
 
     private static bool IsTruncatedPlaceholder(string input)
     {

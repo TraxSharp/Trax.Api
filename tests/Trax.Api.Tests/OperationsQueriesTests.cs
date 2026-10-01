@@ -1043,7 +1043,7 @@ public class OperationsQueriesTests
             id = meta.Id;
         }
 
-        var resp = await new OperationsMutations().CancelExecution(id, _factory, default);
+        var resp = await new OperationsMutations().CancelExecution(id, Operations, default);
 
         resp.Success.Should().BeTrue();
         resp.Count.Should().Be(1);
@@ -1056,7 +1056,7 @@ public class OperationsQueriesTests
     [Test]
     public async Task CancelExecution_MissingOrTerminal_ReturnsZero()
     {
-        var resp = await new OperationsMutations().CancelExecution(999999, _factory, default);
+        var resp = await new OperationsMutations().CancelExecution(999999, Operations, default);
 
         resp.Success.Should().BeFalse();
         resp.Count.Should().Be(0);
