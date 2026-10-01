@@ -1032,7 +1032,7 @@ public class TrainTypeModuleTests
         types.OfType<ObjectTypeExtension>().Should().HaveCount(3);
 
         // Namespace base type should be registered
-        config.RegisteredNamespaceTypes.Should().Contain("PlayersDiscoverQueries");
+        types.Count(t => t.GetType() == typeof(ObjectType)).Should().Be(1);
     }
 
     [Test]
@@ -1064,10 +1064,7 @@ public class TrainTypeModuleTests
         var types = await module.CreateTypesAsync(null!, CancellationToken.None);
 
         // Only one namespace base type should be registered
-        config.RegisteredNamespaceTypes.Count(n => n == "PlayersDiscoverQueries").Should().Be(1);
-
-        // Only one namespace field extension on DiscoverQueries
-        config.RegisteredNamespaceTypes.Should().Contain("DiscoverQueries.players");
+        types.Count(t => t.GetType() == typeof(ObjectType)).Should().Be(1);
     }
 
     [Test]
@@ -1098,8 +1095,8 @@ public class TrainTypeModuleTests
 
         var types = await module.CreateTypesAsync(null!, CancellationToken.None);
 
-        config.RegisteredNamespaceTypes.Should().Contain("PlayersDiscoverQueries");
-        config.RegisteredNamespaceTypes.Should().Contain("AlertsDiscoverQueries");
+        // One namespace base type each (PlayersDiscoverQueries, AlertsDiscoverQueries)
+        types.Count(t => t.GetType() == typeof(ObjectType)).Should().Be(2);
     }
 
     [Test]
@@ -1136,7 +1133,7 @@ public class TrainTypeModuleTests
         types.OfType<ObjectTypeExtension>().Should().HaveCountGreaterThanOrEqualTo(3);
 
         // Namespace type should exist
-        config.RegisteredNamespaceTypes.Should().Contain("PlayersDiscoverQueries");
+        types.Count(t => t.GetType() == typeof(ObjectType)).Should().Be(1);
     }
 
     [Test]
@@ -1158,7 +1155,7 @@ public class TrainTypeModuleTests
         var types = await module.CreateTypesAsync(null!, CancellationToken.None);
 
         // No namespace types should be registered
-        config.RegisteredNamespaceTypes.Should().BeEmpty();
+        types.Count(t => t.GetType() == typeof(ObjectType)).Should().Be(0);
 
         // Should still have DiscoverQueries extension + RootQuery extension
         types.OfType<ObjectTypeExtension>().Should().HaveCount(2);
@@ -1191,9 +1188,9 @@ public class TrainTypeModuleTests
 
         var types = await module.CreateTypesAsync(null!, CancellationToken.None);
 
-        // Should create separate namespace types for queries vs mutations
-        config.RegisteredNamespaceTypes.Should().Contain("AlertsDiscoverQueries");
-        config.RegisteredNamespaceTypes.Should().Contain("AlertsDispatchMutations");
+        // Separate namespace types for queries and mutations (AlertsDiscoverQueries,
+        // AlertsDispatchMutations), plus the CreateAlert response type
+        types.Count(t => t.GetType() == typeof(ObjectType)).Should().Be(3);
     }
 
     [Test]

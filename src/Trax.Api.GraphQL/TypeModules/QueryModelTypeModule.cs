@@ -59,8 +59,12 @@ internal sealed class QueryModelTypeModule(GraphQLConfiguration configuration) :
             }
         }
 
-        // Group model registrations by namespace
-        var byNamespace = registrations.GroupBy(r => r.Attribute.Namespace);
+        // Group model registrations by namespace. A namespace that holds any query model is
+        // owned by this module: it declares the namespace type and its field on DiscoverQueries,
+        // and TrainTypeModule only extends the type with its train fields.
+        var byNamespace = registrations.GroupBy(r =>
+            r.Attribute.Namespace is { } ns ? TrainTypeModule.CamelCase(ns) : null
+        );
 
         foreach (var group in byNamespace)
         {
@@ -75,45 +79,21 @@ internal sealed class QueryModelTypeModule(GraphQLConfiguration configuration) :
                             AddModelQueryField(d, reg);
                     })
                 );
+                continue;
             }
-            else
-            {
-                // Namespace — create/extend intermediate type
-                var nsTypeName = TrainTypeModule.NamespaceTypeName(group.Key, "DiscoverQueries");
-                var nsFieldName = TrainTypeModule.CamelCase(group.Key);
 
-                // Register the base ObjectType for this namespace (only once across modules)
-                if (configuration.RegisteredNamespaceTypes.Add(nsTypeName))
+            var nsTypeName = TrainTypeModule.NamespaceTypeName(group.Key, "DiscoverQueries");
+
+            types.Add(NamespaceTypes.Base(nsTypeName));
+            types.Add(
+                new ObjectTypeExtension(d =>
                 {
-                    types.Add(new ObjectType(d => d.Name(nsTypeName)));
-                }
-
-                // Add fields to the namespace type
-                types.Add(
-                    new ObjectTypeExtension(d =>
-                    {
-                        d.Name(nsTypeName);
-                        foreach (var reg in group)
-                            AddModelQueryField(d, reg);
-                    })
-                );
-
-                // Add the namespace field to DiscoverQueries (only once across modules)
-                var nsFieldKey = $"DiscoverQueries.{nsFieldName}";
-                if (configuration.RegisteredNamespaceTypes.Add(nsFieldKey))
-                {
-                    var capturedNsTypeName = nsTypeName;
-                    types.Add(
-                        new ObjectTypeExtension(d =>
-                        {
-                            d.Name("DiscoverQueries");
-                            d.Field(nsFieldName)
-                                .Type(new NamedTypeNode(capturedNsTypeName))
-                                .Resolve(_ => new object());
-                        })
-                    );
-                }
-            }
+                    d.Name(nsTypeName);
+                    foreach (var reg in group)
+                        AddModelQueryField(d, reg);
+                })
+            );
+            types.Add(NamespaceTypes.Field("DiscoverQueries", group.Key, nsTypeName));
         }
 
         return new(types);

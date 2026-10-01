@@ -186,7 +186,9 @@ public partial class TrainTypeModule(
         Action<IObjectTypeDescriptor, TrainRegistration, string> addField
     )
     {
-        var byNamespace = fields.GroupBy(f => f.Registration.GraphQLNamespace);
+        var byNamespace = fields.GroupBy(f =>
+            f.Registration.GraphQLNamespace is { } ns ? CamelCase(ns) : null
+        );
 
         foreach (var group in byNamespace)
         {
@@ -201,47 +203,40 @@ public partial class TrainTypeModule(
                             addField(d, reg, name);
                     })
                 );
+                continue;
             }
-            else
-            {
-                // Namespace — create intermediate type and add fields to it
-                var nsTypeName = NamespaceTypeName(group.Key, parentTypeName);
-                var nsFieldName = CamelCase(group.Key);
 
-                // Register the base ObjectType for this namespace (only once across modules)
-                if (graphQLConfiguration?.RegisteredNamespaceTypes.Add(nsTypeName) ?? true)
+            // Namespace — an intermediate type (e.g. "AlertsDiscoverQueries") holds the fields,
+            // reached through a field on the parent type.
+            var nsTypeName = NamespaceTypeName(group.Key, parentTypeName);
+
+            // A DiscoverQueries namespace that also holds query models belongs to
+            // QueryModelTypeModule, which declares its type and field. Decided from the
+            // registrations on every build, so building the schema twice builds it the same way.
+            if (!NamespaceOwnedByQueryModels(parentTypeName, group.Key))
+                types.Add(NamespaceTypes.Base(nsTypeName));
+
+            types.Add(
+                new ObjectTypeExtension(d =>
                 {
-                    types.Add(new ObjectType(d => d.Name(nsTypeName)));
-                }
+                    d.Name(nsTypeName);
+                    foreach (var (reg, name) in group)
+                        addField(d, reg, name);
+                })
+            );
 
-                // Add fields to the namespace type
-                types.Add(
-                    new ObjectTypeExtension(d =>
-                    {
-                        d.Name(nsTypeName);
-                        foreach (var (reg, name) in group)
-                            addField(d, reg, name);
-                    })
-                );
-
-                // Add the namespace field to the parent type (only once across modules)
-                var nsFieldKey = $"{parentTypeName}.{nsFieldName}";
-                if (graphQLConfiguration?.RegisteredNamespaceTypes.Add(nsFieldKey) ?? true)
-                {
-                    var capturedNsTypeName = nsTypeName;
-                    types.Add(
-                        new ObjectTypeExtension(d =>
-                        {
-                            d.Name(parentTypeName);
-                            d.Field(nsFieldName)
-                                .Type(new NamedTypeNode(capturedNsTypeName))
-                                .Resolve(_ => new object());
-                        })
-                    );
-                }
-            }
+            if (!NamespaceOwnedByQueryModels(parentTypeName, group.Key))
+                types.Add(NamespaceTypes.Field(parentTypeName, group.Key, nsTypeName));
         }
     }
+
+    private bool NamespaceOwnedByQueryModels(string parentTypeName, string namespaceField) =>
+        parentTypeName == "DiscoverQueries"
+        && graphQLConfiguration is not null
+        && graphQLConfiguration.ModelRegistrations.Any(m =>
+            m.Attribute.Namespace is { } ns
+            && string.Equals(CamelCase(ns), namespaceField, StringComparison.Ordinal)
+        );
 
     /// <summary>
     /// Builds the ExecutionMode enum type with RUN and QUEUE values.
