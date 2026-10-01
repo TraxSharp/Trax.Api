@@ -258,6 +258,7 @@ public static class GraphQLServiceExtensions
         // field that inherits no gate and turns into an @authorize directive.
         var authorizationInSchema =
             config.ModelRegistrations.Any(r => r.AuthorizeAttributes.Count > 0)
+            || config.NavigationTargets.Any(t => t.IsGated)
             || config.OperationsAuthorizeAttributes.Count > 0
             || AnyTypeExtensionDeclaresPosture(config.AdditionalTypeExtensions);
 
@@ -305,6 +306,14 @@ public static class GraphQLServiceExtensions
             {
                 services.AddHostedService<QueryModelAuthorizationSchemaValidator>();
             }
+
+            // Every entity a query model reaches, through its type or its filter and sort
+            // inputs, declares its posture; a declared [TraxAuthorize] gates the inferred type.
+            services.AddHostedService<QueryModelReachValidator>();
+            if (config.NavigationTargets.Any(t => t.IsGated))
+                graphqlBuilder.TryAddTypeInterceptor(
+                    new NavigationTargetPostureInterceptor(config)
+                );
 
             // Register DiscoverQueries base type and discover field on RootQuery.
             // TrainTypeModule will skip creating these when it detects model registrations.

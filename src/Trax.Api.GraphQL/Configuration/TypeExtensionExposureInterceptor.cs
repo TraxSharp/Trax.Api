@@ -96,41 +96,8 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
             if (!declaration.HasAuthorize)
                 continue;
 
-            Emit(discoveryContext, field, declaration.Authorize);
+            AuthorizeDirectives.Emit(field, declaration.Authorize, discoveryContext.TypeInspector);
         }
-    }
-
-    /// <summary>
-    /// Emits one <c>@authorize</c> per policy plus a single unioned roles directive, matching
-    /// <see cref="AuthorizeDirectives"/> exactly so a train, an entity and a resolver carrying the
-    /// same attribute get the same rules.
-    /// </summary>
-    private static void Emit(
-        ITypeDiscoveryContext context,
-        ObjectFieldConfiguration field,
-        IReadOnlyList<TraxAuthorizeAttribute> attributes
-    )
-    {
-        AuthorizeDirectives.ExtractRules(attributes, out var policies, out var roles);
-
-        // ConfigurationHelper is how HotChocolate itself turns a directive instance into a
-        // configuration: it builds the type reference from the inspector, which is not something
-        // a caller can construct.
-        var inspector = context.TypeInspector;
-
-        foreach (var policy in policies)
-            field.AddDirective(
-                new AuthorizeDirective(policy, apply: ApplyPolicy.BeforeResolver),
-                inspector
-            );
-
-        if (roles.Length > 0)
-            field.AddDirective(
-                new AuthorizeDirective(roles, apply: ApplyPolicy.BeforeResolver),
-                inspector
-            );
-        else if (policies.Length == 0)
-            field.AddDirective(new AuthorizeDirective(ApplyPolicy.BeforeResolver), inspector);
     }
 
     // ── Phase 2: the census, on the merged type ─────────────────────────
