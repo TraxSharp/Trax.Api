@@ -110,7 +110,10 @@ public class OperationsQueries
                 r.IsMutation,
                 r.GraphQLName,
                 r.IsBroadcastEnabled
-            ))
+            )
+            {
+                FullName = r.ServiceType.FullName!,
+            })
             .ToList();
     }
 

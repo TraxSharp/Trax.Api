@@ -304,6 +304,7 @@ namespace Trax.Api.DTOs
     public class TrainInfo : System.IEquatable<Trax.Api.DTOs.TrainInfo>
     {
         public TrainInfo(string ServiceTypeName, string ImplementationTypeName, string InputTypeName, string OutputTypeName, string Lifetime, System.Collections.Generic.IReadOnlyList<Trax.Api.DTOs.InputPropertySchema> InputSchema, System.Collections.Generic.IReadOnlyList<string> RequiredPolicies, System.Collections.Generic.IReadOnlyList<string> RequiredRoles, bool IsQuery, bool IsMutation, string? GraphQLName, bool IsBroadcastEnabled) { }
+        public required string FullName { get; init; }
         public string? GraphQLName { get; init; }
         public string ImplementationTypeName { get; init; }
         public System.Collections.Generic.IReadOnlyList<Trax.Api.DTOs.InputPropertySchema> InputSchema { get; init; }
