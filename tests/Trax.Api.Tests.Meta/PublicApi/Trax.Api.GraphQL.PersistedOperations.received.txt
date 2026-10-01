@@ -211,6 +211,12 @@ namespace Trax.Api.GraphQL.PersistedOperations.Storage.Exceptions
         protected PersistedOperationException(string message, System.Exception inner) { }
         public abstract string Code { get; }
     }
+    public sealed class PersistedOperationInputException : Trax.Api.GraphQL.PersistedOperations.Storage.Exceptions.PersistedOperationException
+    {
+        public const string CodeValue = "INVALID_INPUT";
+        public PersistedOperationInputException(string message) { }
+        public override string Code { get; }
+    }
     public sealed class PersistedOperationParseException : Trax.Api.GraphQL.PersistedOperations.Storage.Exceptions.PersistedOperationException
     {
         public const string CodeValue = "PARSE_FAILED";

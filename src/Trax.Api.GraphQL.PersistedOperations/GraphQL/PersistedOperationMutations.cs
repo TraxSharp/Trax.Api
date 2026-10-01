@@ -86,6 +86,12 @@ public sealed class PersistedOperationMutations
         {
             return UploadPersistedOperationPayload.Fail(PersistedOperationError.FromShapeDiff(ex));
         }
+        catch (PersistedOperationInputException ex)
+        {
+            return UploadPersistedOperationPayload.Fail(
+                new PersistedOperationError(ex.Code, ex.Message, null, null, null, null)
+            );
+        }
     }
 
     /// <summary>Soft-delete an operation. Requires a non-empty reason.</summary>
