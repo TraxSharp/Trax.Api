@@ -17,6 +17,9 @@ using Trax.Effect.Configuration.TraxBuilder;
 using Trax.Effect.Data.InMemory.Services.InMemoryContextFactory;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Services.EffectRegistry;
+using Trax.Mediator.Configuration;
+using Trax.Mediator.Services.ConcurrencyLimiter;
+using Trax.Mediator.Services.RunExecutor;
 using Trax.Mediator.Services.TrainDiscovery;
 using Trax.Mediator.Services.TrainExecution;
 using Trax.Mediator.Services.TrustedExecution;
@@ -110,8 +113,12 @@ public class OperationsFailureMaskingTests
             GraphQLOperations = GraphQLOperation.Run,
         };
 
+    /// <param name="execution">
+    /// The train execution service, or null for the mediator's own <see cref="TrainExecutionService"/>
+    /// over this host's registry, so a run is authorized and its input read as in production.
+    /// </param>
     internal static async Task<IHost> StartHostAsync(
-        ITrainExecutionService execution,
+        ITrainExecutionService? execution,
         IJobSubmitter submitter,
         TrainRegistration? registration = null,
         IDataContextProviderFactory? dataContextFactory = null
@@ -147,7 +154,19 @@ public class OperationsFailureMaskingTests
 
                         services.AddScoped(_ => Substitute.For<ITraxHealthService>());
                         services.AddScoped(_ => Substitute.For<ITraxScheduler>());
-                        services.AddScoped(_ => execution);
+                        if (execution is not null)
+                            services.AddScoped(_ => execution);
+                        else
+                            services.AddScoped<ITrainExecutionService>(
+                                sp => new TrainExecutionService(
+                                    discovery,
+                                    Substitute.For<IRunExecutor>(),
+                                    Substitute.For<IConcurrencyLimiter>(),
+                                    dataContextFactory,
+                                    new MediatorConfiguration(),
+                                    sp
+                                )
+                            );
                         services.AddScoped(_ => submitter);
                         // What AddMediator registers: the API's train authorization consults it.
                         services.AddScoped(_ => Substitute.For<ITrustedExecutionScope>());
@@ -155,7 +174,7 @@ public class OperationsFailureMaskingTests
                             discovery,
                             dataContextFactory,
                             new SchedulerConfiguration(),
-                            execution,
+                            sp.GetRequiredService<ITrainExecutionService>(),
                             sp
                         ));
                     })

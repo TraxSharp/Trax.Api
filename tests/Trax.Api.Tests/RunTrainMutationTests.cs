@@ -74,7 +74,7 @@ public class RunTrainMutationTests
     {
         var submitter = new RecordingSubmitter();
         using var host = await StartHostAsync(
-            Substitute.For<ITrainExecutionService>(),
+            execution: null,
             submitter,
             dataContextFactory: _factory
         );
@@ -100,7 +100,7 @@ public class RunTrainMutationTests
     {
         var submitter = new RecordingSubmitter();
         using var host = await StartHostAsync(
-            Substitute.For<ITrainExecutionService>(),
+            execution: null,
             submitter,
             dataContextFactory: _factory
         );
@@ -128,7 +128,7 @@ public class RunTrainMutationTests
     public async Task An_unknown_train_is_a_failed_result()
     {
         using var host = await StartHostAsync(
-            Substitute.For<ITrainExecutionService>(),
+            execution: null,
             new RecordingSubmitter(),
             dataContextFactory: _factory
         );
@@ -151,7 +151,7 @@ public class RunTrainMutationTests
     {
         var submitter = new RecordingSubmitter();
         using var host = await StartHostAsync(
-            Substitute.For<ITrainExecutionService>(),
+            execution: null,
             submitter,
             Registration(requiredRoles: ["RunOperators"]),
             _factory
@@ -179,7 +179,7 @@ public class RunTrainMutationTests
     public async Task A_submit_failure_is_masked_and_the_run_is_recorded_failed()
     {
         using var host = await StartHostAsync(
-            Substitute.For<ITrainExecutionService>(),
+            execution: null,
             new RecordingSubmitter(new HttpRequestException("worker 10.0.0.5:8080 refused")),
             dataContextFactory: _factory
         );
