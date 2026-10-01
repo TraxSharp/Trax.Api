@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Trax.Api.GraphQL.Queries;
 using Trax.Api.Tests.Stress.Fixtures;
 using Trax.Effect.Data.Services.IDataContextFactory;
+using Trax.Effect.Data.Services.SqlDialect;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.EffectRegistry;
 
@@ -36,6 +37,10 @@ public class ReadFieldStressTests : StressTestSetup
 
     private static IDataContextProviderFactory Factory(IServiceProvider sp) =>
         sp.GetRequiredService<IDataContextProviderFactory>();
+
+    // What HotChocolate injects into the list resolvers: the provider's dialect, whose row
+    // estimate stands in for an exact count of an unfiltered table.
+    private static ISqlDialect Dialect(IServiceProvider sp) => sp.GetRequiredService<ISqlDialect>();
 
     private static async Task EnsureSubjectRowsAsync(IServiceProvider sp, CancellationToken ct)
     {
@@ -98,7 +103,12 @@ public class ReadFieldStressTests : StressTestSetup
             ListBudget,
             async (sp, ct) =>
             {
-                var page = await new OperationsQueries().GetManifests(Factory(sp), ct, take: 25);
+                var page = await new OperationsQueries().GetManifests(
+                    Factory(sp),
+                    ct,
+                    take: 25,
+                    sqlDialect: Dialect(sp)
+                );
                 page.Items.Should().HaveCount(25);
                 page.Items.Should().OnlyContain(m => m.ManifestGroupName != null);
             }
@@ -117,7 +127,8 @@ public class ReadFieldStressTests : StressTestSetup
                     Factory(sp),
                     ct,
                     take: 25,
-                    afterId: 30
+                    afterId: 30,
+                    sqlDialect: Dialect(sp)
                 );
                 page.Items.Should().NotBeEmpty();
                 page.Items.Should().OnlyContain(m => m.ManifestGroupName != null);

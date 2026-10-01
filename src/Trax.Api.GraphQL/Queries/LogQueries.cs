@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Trax.Api.DTOs;
 using Trax.Effect.Data.Services.IDataContextFactory;
+using Trax.Effect.Data.Services.SqlDialect;
 
 namespace Trax.Api.GraphQL.Queries;
 
@@ -14,9 +15,10 @@ public class LogQueries
     /// <summary>
     /// A page of log records written by trains, newest first. Pass the previous page's
     /// <c>nextCursor</c> as <c>afterId</c> to page deeply; <c>skip</c> is ignored when <c>afterId</c>
-    /// is set. The total is exact whenever a filter or cursor is given.
+    /// is set. The total is exact whenever a filter is given; unfiltered, it may be an estimate.
     /// </summary>
     /// <param name="dataContextFactory">Resolved from DI; not a GraphQL argument.</param>
+    /// <param name="sqlDialect">Resolved from DI when the provider registers one; not a GraphQL argument.</param>
     /// <param name="ct">Cancels the read.</param>
     /// <param name="skip">How many records to skip (negative is treated as 0).</param>
     /// <param name="take">The page size, clamped to 1 through 500.</param>
@@ -32,7 +34,8 @@ public class LogQueries
         long? metadataId = null,
         LogLevel? minimumLevel = null,
         string? category = null,
-        long? afterId = null
+        long? afterId = null,
+        [Service] ISqlDialect? sqlDialect = null
     )
     {
         take = OperationsPageBounds.Take(take);
@@ -56,15 +59,15 @@ public class LogQueries
         var hasFilter =
             metadataId.HasValue || minimumLevel.HasValue || !string.IsNullOrWhiteSpace(category);
 
-        var (totalCount, isEstimate) =
-            (afterId.HasValue || hasFilter)
-                ? (await baseQuery.CountAsync(ct), false)
-                : await CountEstimator.EstimateOrCountAsync(
-                    db,
-                    "log",
-                    () => baseQuery.CountAsync(ct),
-                    ct
-                );
+        var (totalCount, isEstimate) = hasFilter
+            ? (await baseQuery.CountAsync(ct), false)
+            : await CountEstimator.EstimateOrCountAsync(
+                db,
+                sqlDialect,
+                "log",
+                () => baseQuery.CountAsync(ct),
+                ct
+            );
 
         var query = afterId.HasValue ? baseQuery.Where(l => l.Id < afterId.Value) : baseQuery;
 

@@ -1,14 +1,24 @@
+using System.Text.Json;
 using FluentAssertions;
+using HotChocolate;
+using HotChocolate.Execution;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using NUnit.Framework;
 using Trax.Api.GraphQL.Queries;
+using Trax.Api.Services.HealthCheck;
+using Trax.Api.Tests.Fakes;
 using Trax.Effect.Data.Postgres.Extensions;
 using Trax.Effect.Data.Services.IDataContextFactory;
+using Trax.Effect.Data.Services.SqlDialect;
 using Trax.Effect.Extensions;
 using Trax.Effect.Models.Metadata;
 using Trax.Effect.Models.Metadata.DTOs;
+using Trax.Effect.Services.EffectRegistry;
+using Trax.Mediator.Services.TrainDiscovery;
+using Trax.Scheduler.Services.TraxScheduler;
 
 namespace Trax.Api.Tests;
 
@@ -228,6 +238,128 @@ public class LogQueriesTests
         entry.Message.Should().Be("msg-0");
         entry.Exception.Should().BeNull();
         entry.StackTrace.Should().BeNull();
+    }
+
+    // Above CountEstimator's threshold, so the database's estimate is used when it has one.
+    private const int LargeTableRows = 12_000;
+
+    private async Task SeedLargeAnalyzedLogTable(long metadataId)
+    {
+        await using var db = await _factory.CreateDbContextAsync(default);
+        var ctx = (DbContext)db;
+        await ctx.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO trax.log (metadata_id, event_id, level, message, category) SELECT {metadataId}, g, 'information'::trax.log_level, 'msg', 'Test' FROM generate_series(1, {LargeTableRows}) g"
+        );
+        // reltuples is what ANALYZE (or autovacuum) last measured.
+        await ctx.Database.ExecuteSqlRawAsync("ANALYZE trax.log");
+    }
+
+    [Test]
+    public async Task GetLogs_UnfilteredTotalOfALargeTable_IsTheDatabasesEstimateOnEveryPage()
+    {
+        var metaId = await SeedMetadata();
+        await SeedLargeAnalyzedLogTable(metaId);
+        var dialect = _provider.GetRequiredService<ISqlDialect>();
+        var queries = new LogQueries();
+
+        var first = await queries.GetLogs(_factory, default, take: 10, sqlDialect: dialect);
+        var second = await queries.GetLogs(
+            _factory,
+            default,
+            take: 10,
+            afterId: first.NextCursor,
+            sqlDialect: dialect
+        );
+
+        first.IsEstimatedCount.Should().BeTrue("an unfiltered total of a large table is estimated");
+        first.TotalCount.Should().BeCloseTo(LargeTableRows, 500);
+        second
+            .IsEstimatedCount.Should()
+            .BeTrue("the cursor does not change how the whole list is counted");
+        second.TotalCount.Should().Be(first.TotalCount, "totalCount does not depend on the page");
+    }
+
+    [Test]
+    public async Task GetLogs_FilteredTotalOfALargeTable_IsExact()
+    {
+        var metaId = await SeedMetadata();
+        await SeedLargeAnalyzedLogTable(metaId);
+        var dialect = _provider.GetRequiredService<ISqlDialect>();
+
+        var result = await new LogQueries().GetLogs(
+            _factory,
+            default,
+            metadataId: metaId,
+            sqlDialect: dialect
+        );
+
+        result.IsEstimatedCount.Should().BeFalse();
+        result.TotalCount.Should().Be(LargeTableRows);
+    }
+
+    [Test]
+    public async Task GetLogs_ProviderWithoutAnEstimate_CountsExactly()
+    {
+        var metaId = await SeedMetadata();
+        await SeedLargeAnalyzedLogTable(metaId);
+        // Sqlite's dialect returns no estimate SQL, and InMemory registers no dialect at all.
+        var noEstimate = Substitute.For<ISqlDialect>();
+        noEstimate.EstimateRowCount().Returns((string?)null);
+
+        var withoutEstimate = await new LogQueries().GetLogs(
+            _factory,
+            default,
+            sqlDialect: noEstimate
+        );
+        var withoutDialect = await new LogQueries().GetLogs(_factory, default);
+
+        withoutEstimate.IsEstimatedCount.Should().BeFalse();
+        withoutEstimate.TotalCount.Should().Be(LargeTableRows);
+        withoutDialect.IsEstimatedCount.Should().BeFalse();
+        withoutDialect.TotalCount.Should().Be(LargeTableRows);
+    }
+
+    [Test]
+    public async Task Logs_ThroughGraphQL_UsesTheRegisteredDialectsEstimate()
+    {
+        var metaId = await SeedMetadata();
+        await SeedLargeAnalyzedLogTable(metaId);
+
+        var discovery = Substitute.For<ITrainDiscoveryService>();
+        discovery.DiscoverTrains().Returns([]);
+        var services = new ServiceCollection().AddDevelopmentEnvironment();
+        services.AddSingleton<Trax.Effect.Configuration.TraxBuilder.TraxMarker>();
+        services.AddSingleton(discovery);
+        services.AddSingleton(Substitute.For<IEffectRegistry>());
+        services.AddSingleton(_factory);
+        services.AddSingleton(_provider.GetRequiredService<ISqlDialect>());
+        Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
+            services,
+            graphql => graphql.ExposeOperationQueries().AllowAnonymousOperations()
+        );
+        services.AddScoped(_ => Substitute.For<ITraxHealthService>());
+        services.AddScoped(_ => Substitute.For<ITraxScheduler>());
+        await using var serviceProvider = services.BuildServiceProvider();
+        var executor = await serviceProvider
+            .GetRequiredService<IRequestExecutorProvider>()
+            .GetExecutorAsync("trax");
+
+        var result = (OperationResult)
+            await executor.ExecuteAsync(
+                "{ operations { logs { logs(take: 1) { totalCount isEstimatedCount } } } }"
+            );
+
+        result.Errors.Should().BeNullOrEmpty();
+        using var document = JsonDocument.Parse(result.ToJson());
+        var page = document
+            .RootElement.GetProperty("data")
+            .GetProperty("operations")
+            .GetProperty("logs")
+            .GetProperty("logs");
+        page.GetProperty("isEstimatedCount")
+            .GetBoolean()
+            .Should()
+            .BeTrue("HotChocolate injects the provider's dialect into the resolver");
     }
 
     [Test]

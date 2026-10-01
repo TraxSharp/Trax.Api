@@ -7,6 +7,7 @@ using Trax.Api.Services.HealthCheck;
 using Trax.Core.Exceptions;
 using Trax.Effect.Configuration.TraxEffectConfiguration;
 using Trax.Effect.Data.Services.IDataContextFactory;
+using Trax.Effect.Data.Services.SqlDialect;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.EffectProviderFactory;
 using Trax.Effect.Services.EffectRegistry;
@@ -207,6 +208,7 @@ public class OperationsQueries
     /// train input; <c>manifestDetail</c> does.
     /// </summary>
     /// <param name="dataContextFactory">Resolved from DI; not a GraphQL argument.</param>
+    /// <param name="sqlDialect">Resolved from DI when the provider registers one; not a GraphQL argument.</param>
     /// <param name="ct">Cancels the read.</param>
     /// <param name="skip">How many manifests to skip (negative is treated as 0).</param>
     /// <param name="take">The page size, clamped to 1 through 500.</param>
@@ -224,7 +226,8 @@ public class OperationsQueries
         ScheduleType? scheduleType = null,
         string? nameContains = null,
         long? afterId = null,
-        long? manifestGroupId = null
+        long? manifestGroupId = null,
+        [Service] ISqlDialect? sqlDialect = null
     )
     {
         take = OperationsPageBounds.Take(take);
@@ -251,16 +254,17 @@ public class OperationsQueries
             || !string.IsNullOrWhiteSpace(nameContains)
             || manifestGroupId.HasValue;
 
-        // Count: estimate only for the unfiltered first page, exact when filtered or cursored.
-        var (totalCount, isEstimate) =
-            (afterId.HasValue || hasFilter)
-                ? (await baseQuery.CountAsync(ct), false)
-                : await CountEstimator.EstimateOrCountAsync(
-                    db,
-                    "manifest",
-                    () => baseQuery.CountAsync(ct),
-                    ct
-                );
+        // A filtered total is exact; an unfiltered one may be estimated. The cursor never
+        // changes it: totalCount is the size of the whole list, whichever page this is.
+        var (totalCount, isEstimate) = hasFilter
+            ? (await baseQuery.CountAsync(ct), false)
+            : await CountEstimator.EstimateOrCountAsync(
+                db,
+                sqlDialect,
+                "manifest",
+                () => baseQuery.CountAsync(ct),
+                ct
+            );
 
         // Keyset cursor: skip to items after the cursor instead of using OFFSET
         var query = afterId.HasValue ? baseQuery.Where(m => m.Id < afterId.Value) : baseQuery;
@@ -507,10 +511,11 @@ public class OperationsQueries
     /// <summary>
     /// A page of executions. Pass the previous page's <c>nextCursor</c> as <c>afterId</c> to page
     /// deeply in either order; <c>skip</c> is ignored when <c>afterId</c> is set. The total is exact
-    /// whenever a filter or cursor is given. Carries no input, output or stack trace;
+    /// whenever a filter is given; unfiltered, it may be an estimate. Carries no input, output or stack trace;
     /// <c>executionDetail</c> does.
     /// </summary>
     /// <param name="dataContextFactory">Resolved from DI; not a GraphQL argument.</param>
+    /// <param name="sqlDialect">Resolved from DI when the provider registers one; not a GraphQL argument.</param>
     /// <param name="ct">Cancels the read.</param>
     /// <param name="skip">How many executions to skip (negative is treated as 0).</param>
     /// <param name="take">The page size, clamped to 1 through 500.</param>
@@ -538,7 +543,8 @@ public class OperationsQueries
         long? manifestId = null,
         long? manifestGroupId = null,
         bool hideAdminTrains = false,
-        FailureClass? failureClass = null
+        FailureClass? failureClass = null,
+        [Service] ISqlDialect? sqlDialect = null
     )
     {
         take = OperationsPageBounds.Take(take);
@@ -586,17 +592,17 @@ public class OperationsQueries
             || hideAdminTrains
             || failureClass.HasValue;
 
-        // Filters (or a cursor) force an exact count; the estimator only applies to the
-        // unfiltered first page.
-        var (totalCount, isEstimate) =
-            (afterId.HasValue || hasFilter)
-                ? (await filtered.CountAsync(ct), false)
-                : await CountEstimator.EstimateOrCountAsync(
-                    db,
-                    "metadata",
-                    () => filtered.CountAsync(ct),
-                    ct
-                );
+        // A filtered total is exact; an unfiltered one may be estimated. The cursor never
+        // changes it: totalCount is the size of the whole list, whichever page this is.
+        var (totalCount, isEstimate) = hasFilter
+            ? (await filtered.CountAsync(ct), false)
+            : await CountEstimator.EstimateOrCountAsync(
+                db,
+                sqlDialect,
+                "metadata",
+                () => filtered.CountAsync(ct),
+                ct
+            );
 
         // Keyset stays safe in both directions: Newest pages id < afterId (DESC), Oldest
         // pages id > afterId (ASC). Both use the primary key index.

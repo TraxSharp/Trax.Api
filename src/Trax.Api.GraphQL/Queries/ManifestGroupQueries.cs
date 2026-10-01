@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Trax.Api.DTOs;
 using Trax.Effect.Data.Services.IDataContextFactory;
+using Trax.Effect.Data.Services.SqlDialect;
 using Trax.Effect.Enums;
 using Trax.Scheduler.Services.Operations;
 
@@ -26,7 +27,8 @@ public class ManifestGroupQueries
         int skip = 0,
         int take = 25,
         string? nameContains = null,
-        long? afterId = null
+        long? afterId = null,
+        [Service] ISqlDialect? sqlDialect = null
     )
     {
         take = OperationsPageBounds.Take(take);
@@ -43,15 +45,15 @@ public class ManifestGroupQueries
 
         var hasFilter = !string.IsNullOrWhiteSpace(nameContains);
 
-        var (totalCount, isEstimate) =
-            (afterId.HasValue || hasFilter)
-                ? (await baseQuery.CountAsync(ct), false)
-                : await CountEstimator.EstimateOrCountAsync(
-                    db,
-                    "manifest_group",
-                    () => baseQuery.CountAsync(ct),
-                    ct
-                );
+        var (totalCount, isEstimate) = hasFilter
+            ? (await baseQuery.CountAsync(ct), false)
+            : await CountEstimator.EstimateOrCountAsync(
+                db,
+                sqlDialect,
+                "manifest_group",
+                () => baseQuery.CountAsync(ct),
+                ct
+            );
 
         var query = afterId.HasValue ? baseQuery.Where(g => g.Id < afterId.Value) : baseQuery;
 
