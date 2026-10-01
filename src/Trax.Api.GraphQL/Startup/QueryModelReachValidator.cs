@@ -6,7 +6,7 @@ using HotChocolate.Execution;
 using HotChocolate.Types;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Trax.Api.Auth;
 using Trax.Api.GraphQL.Configuration;
 
 namespace Trax.Api.GraphQL.Startup;
@@ -34,12 +34,12 @@ namespace Trax.Api.GraphQL.Startup;
 internal sealed class QueryModelReachValidator(
     GraphQLConfiguration configuration,
     IServiceProvider serviceProvider
-) : IHostedService
+) : StartupGate
 {
     /// <summary>Schema name registered by Trax for the GraphQL endpoint.</summary>
     private const string TraxSchemaName = "trax";
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task CheckAsync(CancellationToken cancellationToken)
     {
         using var scope = serviceProvider.CreateScope();
         var executor = await scope
@@ -283,6 +283,4 @@ internal sealed class QueryModelReachValidator(
             ),
         };
     }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

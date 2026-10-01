@@ -6,6 +6,7 @@ using HotChocolate.Types.Descriptors.Configurations;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Queries;
 using Trax.Api.GraphQL.Subscriptions;
+using Trax.Api.GraphQL.TypeModules;
 using Trax.Effect.Attributes;
 
 namespace Trax.Api.GraphQL.Configuration;
@@ -54,7 +55,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
     /// The namespaces Trax hangs off a root type through an ungated field (<c>discover</c>,
     /// <c>dispatch</c>). A field grafted onto one is as reachable as a field on the root itself.
     /// The per-namespace types Trax builds under them have runtime type <c>object</c>, so those
-    /// are recognised by name, from <see cref="GraphQLConfiguration.RegisteredNamespaceTypes"/>.
+    /// are recognised by the marker <see cref="NamespaceTypes.Base"/> sets on each one.
     /// </summary>
     private static readonly HashSet<Type> RootNamespaceTypes =
     [
@@ -352,10 +353,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
     private bool IsRootLike(ObjectTypeConfiguration objectType) =>
         RootTypes.Contains(objectType.RuntimeType)
         || RootNamespaceTypes.Contains(objectType.RuntimeType)
-        || (
-            objectType.RuntimeType == typeof(object)
-            && _configuration.RegisteredNamespaceTypes.Contains(objectType.Name)
-        );
+        || NamespaceTypes.IsDeclaredNamespace(objectType);
 
     private string DescribeParent(
         ObjectTypeConfiguration objectType,
