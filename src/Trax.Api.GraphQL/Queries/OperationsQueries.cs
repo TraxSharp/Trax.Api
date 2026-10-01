@@ -8,11 +8,14 @@ using Trax.Api.Services.HealthCheck;
 using Trax.Core.Exceptions;
 using Trax.Effect.Configuration.TraxEffectConfiguration;
 using Trax.Effect.Data.Services.IDataContextFactory;
+using Trax.Effect.Data.Services.SqlDialect;
 using Trax.Effect.Enums;
 using Trax.Effect.Services.EffectProviderFactory;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
 using Trax.Scheduler.Configuration;
+using Trax.Scheduler.Services.Operations;
+using ManifestExecutionStats = Trax.Api.DTOs.ManifestExecutionStats;
 
 namespace Trax.Api.GraphQL.Queries;
 
@@ -114,7 +117,10 @@ public class OperationsQueries
                 r.IsMutation,
                 r.GraphQLName,
                 r.IsBroadcastEnabled
-            ))
+            )
+            {
+                FullName = r.ServiceType.FullName!,
+            })
             .ToList();
     }
 
@@ -215,6 +221,7 @@ public class OperationsQueries
     /// train input; <c>manifestDetail</c> does.
     /// </summary>
     /// <param name="dataContextFactory">Resolved from DI; not a GraphQL argument.</param>
+    /// <param name="sqlDialect">Resolved from DI when the provider registers one; not a GraphQL argument.</param>
     /// <param name="ct">Cancels the read.</param>
     /// <param name="skip">How many manifests to skip (negative is treated as 0).</param>
     /// <param name="take">The page size, clamped to 1 through 500.</param>
@@ -232,7 +239,8 @@ public class OperationsQueries
         ScheduleType? scheduleType = null,
         string? nameContains = null,
         long? afterId = null,
-        long? manifestGroupId = null
+        long? manifestGroupId = null,
+        [Service] ISqlDialect? sqlDialect = null
     )
     {
         take = OperationsPageBounds.Take(take);
@@ -259,16 +267,17 @@ public class OperationsQueries
             || !string.IsNullOrWhiteSpace(nameContains)
             || manifestGroupId.HasValue;
 
-        // Count: estimate only for the unfiltered first page, exact when filtered or cursored.
-        var (totalCount, isEstimate) =
-            (afterId.HasValue || hasFilter)
-                ? (await baseQuery.CountAsync(ct), false)
-                : await CountEstimator.EstimateOrCountAsync(
-                    db,
-                    "manifest",
-                    () => baseQuery.CountAsync(ct),
-                    ct
-                );
+        // A filtered total is exact; an unfiltered one may be estimated. The cursor never
+        // changes it: totalCount is the size of the whole list, whichever page this is.
+        var (totalCount, isEstimate) = hasFilter
+            ? (await baseQuery.CountAsync(ct), false)
+            : await CountEstimator.EstimateOrCountAsync(
+                db,
+                sqlDialect,
+                "manifest",
+                () => baseQuery.CountAsync(ct),
+                ct
+            );
 
         // Keyset cursor: skip to items after the cursor instead of using OFFSET
         var query = afterId.HasValue ? baseQuery.Where(m => m.Id < afterId.Value) : baseQuery;
@@ -344,17 +353,21 @@ public class OperationsQueries
     /// <summary>
     /// Full detail for one manifest, including the train input it runs with. The input is on this
     /// single-row read only, never on the <c>manifests</c> list, the way an execution's input is on
-    /// <c>executionDetail</c> alone. Returns <c>null</c> when the manifest does not exist.
+    /// <c>executionDetail</c> alone. The manifest keeps it unmasked because its runs start from it;
+    /// here each <c>[TraxSensitive]</c> member reads <c>{"_redacted": true}</c>, and an input this
+    /// host cannot read as its type is masked whole. Returns <c>null</c> when the manifest does
+    /// not exist.
     /// </summary>
     public async Task<ManifestDetail?> GetManifestDetail(
         long id,
         [Service] IDataContextProviderFactory dataContextFactory,
+        [Service] ITrainDiscoveryService discovery,
         CancellationToken ct
     )
     {
         using var db = await dataContextFactory.CreateDbContextAsync(ct);
 
-        return await db
+        var detail = await db
             .Manifests.AsNoTracking()
             .Where(m => m.Id == id)
             .Select(m => new ManifestDetail(
@@ -381,43 +394,43 @@ public class OperationsQueries
                 m.VarianceSeconds
             ))
             .FirstOrDefaultAsync(ct);
+
+        return detail is null
+            ? null
+            : detail with
+            {
+                Properties = TransportInputRedaction.Redact(
+                    discovery,
+                    detail.Properties,
+                    detail.PropertyTypeName
+                ),
+            };
     }
 
     /// <summary>
     /// Execution roll-up for a single manifest: run counts by state plus the most recent run and
-    /// most recent successful run. Backs the summary cards on the dashboard's manifest detail page.
+    /// most recent successful run. Backs the summary cards on the dashboard's manifest detail page,
+    /// and reads through the same <see cref="IOperationsService"/> call. A manifest with no runs,
+    /// or an id with no manifest, gets zeros and nulls.
     /// </summary>
     public async Task<ManifestExecutionStats> GetManifestStats(
         long manifestId,
-        [Service] IDataContextProviderFactory dataContextFactory,
+        [Service] IOperationsService operationsService,
         CancellationToken ct
     )
     {
-        using var db = await dataContextFactory.CreateDbContextAsync(ct);
-        var scoped = db.Metadatas.AsNoTracking().Where(m => m.ManifestId == manifestId);
-
-        var byState = await scoped
-            .GroupBy(m => m.TrainState)
-            .Select(g => new { State = g.Key, Count = (long)g.Count() })
-            .ToListAsync(ct);
-
-        long CountOf(TrainState state) => byState.FirstOrDefault(x => x.State == state)?.Count ?? 0;
-
-        var lastRun = await scoped.MaxAsync(m => (DateTime?)m.StartTime, ct);
-        var lastSuccessfulRun = await scoped
-            .Where(m => m.TrainState == TrainState.Completed && m.EndTime != null)
-            .MaxAsync(m => (DateTime?)m.EndTime, ct);
+        var stats = await operationsService.GetManifestExecutionStatsAsync(manifestId, ct);
 
         return new ManifestExecutionStats(
-            manifestId,
-            Total: byState.Sum(x => x.Count),
-            Completed: CountOf(TrainState.Completed),
-            Failed: CountOf(TrainState.Failed),
-            InProgress: CountOf(TrainState.InProgress),
-            Pending: CountOf(TrainState.Pending),
-            Cancelled: CountOf(TrainState.Cancelled),
-            LastRun: lastRun,
-            LastSuccessfulRun: lastSuccessfulRun
+            stats.ManifestId,
+            stats.Total,
+            stats.Completed,
+            stats.Failed,
+            stats.InProgress,
+            stats.Pending,
+            stats.Cancelled,
+            stats.LastRun,
+            stats.LastSuccessfulRun
         );
     }
 
@@ -515,10 +528,11 @@ public class OperationsQueries
     /// <summary>
     /// A page of executions. Pass the previous page's <c>nextCursor</c> as <c>afterId</c> to page
     /// deeply in either order; <c>skip</c> is ignored when <c>afterId</c> is set. The total is exact
-    /// whenever a filter or cursor is given. Carries no input, output or stack trace;
+    /// whenever a filter is given; unfiltered, it may be an estimate. Carries no input, output or stack trace;
     /// <c>executionDetail</c> does.
     /// </summary>
     /// <param name="dataContextFactory">Resolved from DI; not a GraphQL argument.</param>
+    /// <param name="sqlDialect">Resolved from DI when the provider registers one; not a GraphQL argument.</param>
     /// <param name="ct">Cancels the read.</param>
     /// <param name="skip">How many executions to skip (negative is treated as 0).</param>
     /// <param name="take">The page size, clamped to 1 through 500.</param>
@@ -546,7 +560,8 @@ public class OperationsQueries
         long? manifestId = null,
         long? manifestGroupId = null,
         bool hideAdminTrains = false,
-        FailureClass? failureClass = null
+        FailureClass? failureClass = null,
+        [Service] ISqlDialect? sqlDialect = null
     )
     {
         take = OperationsPageBounds.Take(take);
@@ -594,17 +609,17 @@ public class OperationsQueries
             || hideAdminTrains
             || failureClass.HasValue;
 
-        // Filters (or a cursor) force an exact count; the estimator only applies to the
-        // unfiltered first page.
-        var (totalCount, isEstimate) =
-            (afterId.HasValue || hasFilter)
-                ? (await filtered.CountAsync(ct), false)
-                : await CountEstimator.EstimateOrCountAsync(
-                    db,
-                    "metadata",
-                    () => filtered.CountAsync(ct),
-                    ct
-                );
+        // A filtered total is exact; an unfiltered one may be estimated. The cursor never
+        // changes it: totalCount is the size of the whole list, whichever page this is.
+        var (totalCount, isEstimate) = hasFilter
+            ? (await filtered.CountAsync(ct), false)
+            : await CountEstimator.EstimateOrCountAsync(
+                db,
+                sqlDialect,
+                "metadata",
+                () => filtered.CountAsync(ct),
+                ct
+            );
 
         // Keyset stays safe in both directions: Newest pages id < afterId (DESC), Oldest
         // pages id > afterId (ASC). Both use the primary key index.

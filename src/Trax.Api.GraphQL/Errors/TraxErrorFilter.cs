@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Trax.Api.Exceptions;
 using Trax.Core.Exceptions;
 using Trax.Mediator.Exceptions;
+using Trax.Scheduler.Services.RunExecutor;
 
 namespace Trax.Api.GraphQL.Errors;
 
@@ -49,11 +50,14 @@ namespace Trax.Api.GraphQL.Errors;
 /// <see cref="TrainException"/>: execution failures; code <c>TRAX_TRAIN_ERROR</c>. A
 /// message a train author wrote is passed through, and authors are expected to treat it as
 /// client-safe. A message that carries another exception, as the structured
-/// <see cref="TrainExceptionData"/> JSON a remote worker or a nested train produces, passes
-/// through only the carried message of a carried <see cref="TrainException"/>; any other
-/// carried type, and the scheduler's remote-transport failures, get
-/// <see cref="TrainFailedMessage"/>. The detail stays in the recorded metadata and the logs.
-/// See <c>docs/adr/0014-only-a-train-exceptions-own-message-reaches-the-client.md</c>.
+/// <see cref="TrainExceptionData"/> JSON a nested train produces, passes through only the
+/// carried message of a carried <see cref="TrainException"/>; any other carried type gets
+/// <see cref="TrainFailedMessage"/>. A run on a remote runner fails as a
+/// <see cref="RemoteRunException"/>, whose <see cref="RemoteRunException.PublicMessage"/> the
+/// runner chose (<c>Trax.Docs/adr/0028</c>): that message is shown, and
+/// <see cref="TrainFailedMessage"/> when there is none, transport failures included. The detail
+/// stays in the recorded metadata and the logs. See
+/// <c>docs/adr/0014-only-a-train-exceptions-own-message-reaches-the-client.md</c>.
 /// </item>
 /// </list>
 /// Any other exception type (including <see cref="InvalidOperationException"/>) is
@@ -105,6 +109,11 @@ internal class TraxErrorFilter(ILogger<TraxErrorFilter>? logger = null) : IError
                 .WithMessage(ex.Message)
                 .WithCode("TRAX_INVALID_INPUT"),
             NoTrainForInputException ex => HostConfiguration(error, ex),
+            // Ahead of the TrainException arm it derives from: the runner chose what a client
+            // may read, and the full message is the calling side's record of the failure.
+            RemoteRunException ex => error
+                .WithMessage(ex.PublicMessage ?? TrainFailedMessage)
+                .WithCode("TRAX_TRAIN_ERROR"),
             TrainException ex => error
                 .WithMessage(PublicTrainMessage(ex.Message))
                 .WithCode("TRAX_TRAIN_ERROR"),
@@ -131,16 +140,6 @@ internal class TraxErrorFilter(ILogger<TraxErrorFilter>? logger = null) : IError
     }
 
     /// <summary>
-    /// Prefixes of the messages the scheduler's remote run executors build around a worker's
-    /// reply. What follows them is the worker's response, not text a train author wrote.
-    /// </summary>
-    private static readonly string[] RemoteTransportPrefixes =
-    [
-        "Remote run endpoint returned",
-        "Remote train execution failed",
-    ];
-
-    /// <summary>
     /// The part of a <see cref="TrainException"/> message a client may see.
     /// </summary>
     internal static string PublicTrainMessage(string message)
@@ -151,10 +150,6 @@ internal class TraxErrorFilter(ILogger<TraxErrorFilter>? logger = null) : IError
                 && !string.IsNullOrEmpty(carried.Message)
                 ? PublicTrainMessage(carried.Message)
                 : TrainFailedMessage;
-
-        foreach (var prefix in RemoteTransportPrefixes)
-            if (message.StartsWith(prefix, StringComparison.Ordinal))
-                return TrainFailedMessage;
 
         return message;
     }
