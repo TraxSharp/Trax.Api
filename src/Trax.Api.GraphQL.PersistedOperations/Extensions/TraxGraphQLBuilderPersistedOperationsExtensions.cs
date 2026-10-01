@@ -145,6 +145,10 @@ public static class TraxGraphQLBuilderPersistedOperationsExtensions
         services.AddSingleton<IPersistedOperationStore>(sp =>
             sp.GetRequiredService<DbPersistedOperationStorage>()
         );
+        services.TryAddSingleton<
+            Services.IPersistedOperationsService,
+            Services.PersistedOperationsService
+        >();
 
         // Allowlist matcher and the decision the enforcement middleware asks.
         services.AddSingleton<AllowlistMatcher>();

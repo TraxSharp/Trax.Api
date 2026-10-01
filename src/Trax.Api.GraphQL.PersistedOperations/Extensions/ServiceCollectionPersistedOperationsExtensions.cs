@@ -95,6 +95,10 @@ public static class ServiceCollectionPersistedOperationsExtensions
         services.AddSingleton<IPersistedOperationStore>(sp =>
             sp.GetRequiredService<DbPersistedOperationStorage>()
         );
+        services.TryAddSingleton<
+            Services.IPersistedOperationsService,
+            Services.PersistedOperationsService
+        >();
 
         return services;
     }
