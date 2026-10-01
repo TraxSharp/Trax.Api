@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using HotChocolate.Language;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -186,6 +188,57 @@ public class PersistedOperationIdBindingTests
             data.ValueKind.Should().NotBe(JsonValueKind.Object);
             await host.StopAsync();
         }
+    }
+
+    [Test]
+    public async Task AnIdSentWithADocumentThatIsNotItsHash_IsRefusedWithACode()
+    {
+        var reply = await PostAsync(
+            new { id = "Mismatched", query = "query Mismatched { version }" }
+        );
+
+        reply.TryGetProperty("data", out _).Should().BeFalse("{0}", reply);
+        reply
+            .GetProperty("errors")[0]
+            .GetProperty("extensions")
+            .GetProperty("code")
+            .GetString()
+            .Should()
+            .Be("PERSISTED_OPERATION_ID_MISMATCH");
+    }
+
+    [Test]
+    public async Task AnIdTheStoreHolds_SentWithAnotherDocument_IsRefusedRatherThanRunEither()
+    {
+        await _store.UpsertAsync(
+            "HeldGreeting",
+            GraphQLFixture.ValidDocument,
+            null,
+            CancellationToken.None
+        );
+
+        var reply = await PostAsync(new { id = "HeldGreeting", query = "query Other { version }" });
+
+        reply.TryGetProperty("data", out _).Should().BeFalse("{0}", reply);
+    }
+
+    [Test]
+    public async Task AnIdThatIsTheDocumentsOwnHash_RunsThatDocument()
+    {
+        // The automatic-persisted-query shape: the id is the hash of the document sent with it,
+        // under the executor's hash algorithm (MD5 hex by default).
+        const string document = "query OwnHash { version }";
+        var hash = new MD5DocumentHashProvider(HashFormat.Hex)
+            .ComputeHash(Encoding.UTF8.GetBytes(document))
+            .Value;
+
+        var reply = await PostAsync(new { id = hash, query = document });
+
+        reply.GetProperty("data").GetProperty("version").GetString().Should().Be("v1");
+
+        // And the id then names that same document, because the id is its content.
+        var again = await PostAsync(new { id = hash });
+        again.GetProperty("data").GetProperty("version").GetString().Should().Be("v1");
     }
 
     private Task<JsonElement> PostAsync(object body) => PostAsync(_client, body);
