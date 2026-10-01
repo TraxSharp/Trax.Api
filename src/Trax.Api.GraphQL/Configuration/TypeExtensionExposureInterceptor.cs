@@ -50,6 +50,38 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
         typeof(LifecycleSubscriptions),
     ];
 
+    /// <summary>
+    /// The namespaces Trax hangs off a root type through an ungated field (<c>discover</c>,
+    /// <c>dispatch</c>). A field grafted onto one is as reachable as a field on the root itself.
+    /// The per-namespace types Trax builds under them have runtime type <c>object</c>, so those
+    /// are recognised by name, from <see cref="GraphQLConfiguration.RegisteredNamespaceTypes"/>.
+    /// </summary>
+    private static readonly HashSet<Type> RootNamespaceTypes =
+    [
+        typeof(DiscoverQueries),
+        typeof(DispatchMutations),
+    ];
+
+    /// <summary>
+    /// The types under the <c>operations</c> field, whose posture is the one the host declared
+    /// for the whole namespace (api/0004).
+    /// </summary>
+    private static readonly HashSet<Type> OperationsTypes =
+    [
+        typeof(OperationsQueries),
+        typeof(DeadLetterQueries),
+        typeof(WorkQueueQueries),
+        typeof(ManifestGroupQueries),
+        typeof(LogQueries),
+        typeof(MetricsQueries),
+        typeof(ConfigQueries),
+        typeof(OperationsMutations),
+        typeof(DeadLetterMutations),
+        typeof(WorkQueueMutations),
+        typeof(ManifestGroupMutations),
+        typeof(ConfigMutations),
+    ];
+
     public TypeExtensionExposureInterceptor(
         GraphQLConfiguration configuration,
         TypeExtensionExposureReport report
@@ -114,7 +146,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
         if (configuration is not ObjectTypeConfiguration objectType)
             return;
 
-        var parent = ResolveParentPosture(objectType.RuntimeType);
+        var parent = ResolveParentPosture(objectType);
 
         foreach (var field in objectType.Fields)
         {
@@ -164,7 +196,7 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
                     TypeExtensionExposureRule.BuildMessage(
                         fieldPath,
                         resolver,
-                        DescribeParent(objectType.RuntimeType, parent),
+                        DescribeParent(objectType, parent),
                         violation
                     )
                 )
@@ -272,19 +304,44 @@ internal sealed class TypeExtensionExposureInterceptor : TypeInterceptor
             : null;
     }
 
-    private TypeExtensionParentPosture ResolveParentPosture(Type runtimeType)
+    private TypeExtensionParentPosture ResolveParentPosture(ObjectTypeConfiguration objectType)
     {
-        // A root type has nothing above it, so a field on one inherits nothing.
-        if (RootTypes.Contains(runtimeType))
+        var runtimeType = objectType.RuntimeType;
+
+        // A root type has nothing above it, so a field on one inherits nothing; nor does a field
+        // on a namespace Trax reaches from the root through an ungated field.
+        if (IsRootLike(objectType))
             return TypeExtensionParentPosture.Anonymous;
+
+        // The operations namespace always carries a declared posture before the schema exists:
+        // the builder refuses to expose it without GateOperations(), RequireAuthorization() or
+        // AllowAnonymousOperations() (api/0004). A field grafted onto it, Trax's own persisted
+        // operation namespaces among them, inherits that decision.
+        if (OperationsTypes.Contains(runtimeType))
+            return _configuration.OperationsAuthorizeAttributes.Count > 0
+                ? TypeExtensionParentPosture.Gated
+                : TypeExtensionParentPosture.NotExposed;
 
         return _postureByEntityType.TryGetValue(runtimeType, out var posture)
             ? posture
             : TypeExtensionParentPosture.NotExposed;
     }
 
-    private static string DescribeParent(Type runtimeType, TypeExtensionParentPosture parent) =>
-        parent is TypeExtensionParentPosture.Anonymous && RootTypes.Contains(runtimeType)
-            ? $"the schema root type '{runtimeType.Name}'"
-            : $"'{runtimeType.Name}', which is [TraxAllowAnonymous]";
+    private bool IsRootLike(ObjectTypeConfiguration objectType) =>
+        RootTypes.Contains(objectType.RuntimeType)
+        || RootNamespaceTypes.Contains(objectType.RuntimeType)
+        || (
+            objectType.RuntimeType == typeof(object)
+            && _configuration.RegisteredNamespaceTypes.Contains(objectType.Name)
+        );
+
+    private string DescribeParent(
+        ObjectTypeConfiguration objectType,
+        TypeExtensionParentPosture parent
+    ) =>
+        parent is not TypeExtensionParentPosture.Anonymous ? $"'{objectType.Name}'"
+        : RootTypes.Contains(objectType.RuntimeType) ? $"the schema root type '{objectType.Name}'"
+        : IsRootLike(objectType)
+            ? $"'{objectType.Name}', a namespace reached from the schema root through an ungated field"
+        : $"'{objectType.Name}', which is [TraxAllowAnonymous]";
 }

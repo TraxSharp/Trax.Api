@@ -220,6 +220,20 @@ public class TypeExtensionExposureTests
     }
 
     [Test]
+    public async Task DiscoverNamespace_UndeclaredField_FailsStartup()
+    {
+        // `discover` is built by Trax as a lambda field on RootQuery with no gate, so a field
+        // grafted onto DiscoverQueries is exactly as reachable as one on RootQuery.
+        var ex = await StartAsync(g => g.AddTypeExtension<UndeclaredOnDiscoverQueries>());
+
+        ex.Should()
+            .BeOfType<InvalidOperationException>(
+                "DiscoverQueries is reached straight from the root on an ungated endpoint"
+            );
+        ex!.Message.Should().Contain("undeclaredDiscoverField");
+    }
+
+    [Test]
     public async Task RootMutation_UndeclaredField_FailsStartup()
     {
         var ex = await StartAsync(
@@ -578,6 +592,12 @@ public sealed class ConflictedOnRootQuery
     [TraxAuthorize]
     [TraxAllowAnonymous]
     public string ConflictedRootField() => "conflicted";
+}
+
+[ExtendObjectType(typeof(Trax.Api.GraphQL.Queries.DiscoverQueries))]
+public sealed class UndeclaredOnDiscoverQueries
+{
+    public string UndeclaredDiscoverField() => "open";
 }
 
 [ExtendObjectType("RootMutation")]
