@@ -18,10 +18,16 @@ namespace Trax.Api.Tests;
 /// the operations payload convention: a refusal is <c>success: false</c> with a message (errors
 /// as data), a caller who may not run the train is the <c>TRAX_AUTHORIZATION</c> error, and a
 /// failure of the server is a masked error.
+///
+/// <para>Enforces <c>docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md</c>.</para>
 /// </summary>
 [TestFixture]
+[Property("adr", "docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md")]
 public class RunTrainMutationTests
 {
+    private const string Adr =
+        "docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md";
+
     private const string TrainName = "Trax.Api.Tests.OperationsFailureMaskingTests+IMaskedTrain";
 
     private IDataContextProviderFactory _factory = null!;
@@ -105,7 +111,9 @@ public class RunTrainMutationTests
             RunTrain(TrainName, "{not json")
         );
 
-        doc.RootElement.TryGetProperty("errors", out _).Should().BeFalse();
+        doc.RootElement.TryGetProperty("errors", out _)
+            .Should()
+            .BeFalse("a refusal is returned in the payload, not thrown (" + Adr + ")");
         var payload = Payload(doc);
         payload.GetProperty("success").GetBoolean().Should().BeFalse();
         payload.GetProperty("message").GetString().Should().StartWith("Invalid InputJson");
@@ -184,7 +192,12 @@ public class RunTrainMutationTests
 
         doc.RootElement.TryGetProperty("errors", out var errors)
             .Should()
-            .BeTrue("the train was accepted and the server could not start it: not a refusal");
+            .BeTrue(
+                "the train was accepted and the server could not start it: a failure, not a "
+                    + "refusal ("
+                    + Adr
+                    + ")"
+            );
         errors[0].GetProperty("message").GetString().Should().Be("Unexpected Execution Error");
         doc.RootElement.GetRawText().Should().NotContain("10.0.0.5");
         await using var db = await _factory.CreateDbContextAsync(default);

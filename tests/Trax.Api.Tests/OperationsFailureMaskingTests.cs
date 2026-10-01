@@ -32,8 +32,10 @@ namespace Trax.Api.Tests;
 /// rather than being refused: a masked error carrying nothing about the server. The real
 /// <see cref="OperationsService"/> runs here, over a mediator that fails the way a database
 /// outage does, so the test covers the service's rethrow and the error filter's masking together.
+/// Enforces <c>docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md</c>.
 /// </summary>
 [TestFixture]
+[Property("adr", "docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md")]
 public class OperationsFailureMaskingTests
 {
     private const string TrainName = "Trax.Api.Tests.OperationsFailureMaskingTests+IMaskedTrain";
@@ -76,7 +78,10 @@ public class OperationsFailureMaskingTests
         var raw = doc.RootElement.GetRawText();
         doc.RootElement.TryGetProperty("errors", out var errors)
             .Should()
-            .BeTrue("an infrastructure failure is not a refusal, so it is not a failed result");
+            .BeTrue(
+                "an infrastructure failure is not a refusal, so it is not a failed result "
+                    + "(docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md)"
+            );
         errors[0].GetProperty("message").GetString().Should().Be("Unexpected Execution Error");
         raw.Should().NotContain(UnreachableHost).And.NotContain("Npgsql");
 

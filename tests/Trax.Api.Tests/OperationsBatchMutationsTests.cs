@@ -24,9 +24,11 @@ namespace Trax.Api.Tests;
 /// The cancel and enable/disable mutations the dashboard offers on a selection call the same
 /// <see cref="IOperationsService"/> methods the dashboard does, so a batch from the API flags,
 /// skips and refuses exactly what the same batch from the dashboard would. Runs against
-/// Postgres, where the service writes each batch as one statement.
+/// Postgres, where the service writes each batch as one statement. A refused batch is a failed
+/// payload, per <c>docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md</c>.
 /// </summary>
 [TestFixture]
+[Property("adr", "docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md")]
 public class OperationsBatchMutationsTests
 {
     private static readonly string ConnectionString =
@@ -175,7 +177,11 @@ public class OperationsBatchMutationsTests
     {
         var response = await new OperationsMutations().CancelExecutions([], Operations, default);
 
-        response.Success.Should().BeFalse();
+        response
+            .Success.Should()
+            .BeFalse(
+                "an empty batch is a refusal, returned in the payload (docs/adr/0028-an-operations-mutation-returns-a-refusal-and-throws-a-failure.md)"
+            );
         response.Message.Should().Be("No ids were given.");
     }
 

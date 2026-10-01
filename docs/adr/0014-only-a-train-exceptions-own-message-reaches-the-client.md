@@ -49,6 +49,6 @@ waiting for.
 
 ## Changelog
 
-- **2026-09-27**: Recorded.
 - **2026-09-30**: A remote failure is read from `RemoteRunException.PublicMessage` (docs/0028)
   instead of by the transport messages' prefixes, which missed the Lambda executor's.
+- **2026-09-27**: Recorded.
