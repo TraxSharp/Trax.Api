@@ -8,6 +8,7 @@ using Trax.Api.GraphQL.Mutations;
 using Trax.Api.GraphQL.Queries;
 using Trax.Api.Tests.Fakes;
 using Trax.Core.Exceptions;
+using Trax.Effect.Attributes;
 using Trax.Effect.Data.Postgres.Extensions;
 using Trax.Effect.Data.Services.IDataContextFactory;
 using Trax.Effect.Enums;
@@ -19,6 +20,7 @@ using Trax.Effect.Models.Manifest.DTOs;
 using Trax.Effect.Models.ManifestGroup;
 using Trax.Effect.Models.Metadata;
 using Trax.Effect.Models.Metadata.DTOs;
+using Trax.Effect.Models.RecordedDecision;
 using Trax.Effect.Services.ChangeSignal;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Mediator.Services.TrainDiscovery;
@@ -1164,41 +1166,156 @@ public class OperationsQueriesTests
         }
     }
 
-    [Test]
-    public async Task RequeueExecution_QueuesTrainWithMetadataNameAndInput()
+    private async Task<long> SeedRequeueSourceAsync(string? input, bool recordDecision = false)
     {
-        long id;
-        await using (var db = await _factory.CreateDbContextAsync(default))
+        await using var db = await _factory.CreateDbContextAsync(default);
+        var meta = Metadata.Create(
+            new CreateMetadata
+            {
+                Name = typeof(IRequeueProbeTrain).FullName!,
+                ExternalId = Guid.NewGuid().ToString("N"),
+                Input = null,
+            }
+        );
+        meta.Input = input;
+        await db.Track(meta);
+        await db.SaveChanges(default);
+
+        if (recordDecision)
         {
-            var meta = Metadata.Create(
-                new CreateMetadata
+            db.RecordedDecisions.Add(
+                new RecordedDecision
                 {
-                    Name = "Trax.X.RequeueTrain",
-                    ExternalId = Guid.NewGuid().ToString("N"),
-                    Input = null,
+                    MetadataId = meta.Id,
+                    QuestionKey = "Route",
+                    Occurrence = 0,
+                    Kind = "choice",
+                    Question = "{}",
+                    Answer = "\"Express\"",
+                    DecidedAt = DateTime.UtcNow,
                 }
             );
-            meta.Input = "{\"v\": 1}";
-            await db.Track(meta);
             await db.SaveChanges(default);
-            id = meta.Id;
         }
 
-        var ops = Substitute.For<IOperationsService>();
-        ops.QueueTrainAsync(Arg.Any<QueueTrainInput>(), Arg.Any<CancellationToken>())
-            .Returns(new OperationResult(true, Count: 1, Message: "queued"));
+        return meta.Id;
+    }
 
-        var resp = await new OperationsMutations().RequeueExecution(id, _factory, ops, default);
+    /// <summary>
+    /// The real operations service over this fixture's database, with the probe train
+    /// registered and the mediator substituted, so a test sees exactly what reached the enqueue.
+    /// </summary>
+    private IOperationsService RequeueOperations(out ITrainExecutionService execution)
+    {
+        var discovery = Substitute.For<ITrainDiscoveryService>();
+        discovery
+            .DiscoverTrains()
+            .Returns([
+                new TrainRegistration
+                {
+                    ServiceType = typeof(IRequeueProbeTrain),
+                    ImplementationType = typeof(IRequeueProbeTrain),
+                    InputType = typeof(object),
+                    OutputType = typeof(object),
+                    Lifetime = ServiceLifetime.Scoped,
+                    ServiceTypeName = typeof(IRequeueProbeTrain).FullName!,
+                    ImplementationTypeName = typeof(IRequeueProbeTrain).FullName!,
+                    InputTypeName = typeof(object).FullName!,
+                    OutputTypeName = typeof(object).FullName!,
+                    RequiredPolicies = [],
+                    RequiredRoles = [],
+                    IsQuery = false,
+                    IsMutation = true,
+                    IsBroadcastEnabled = false,
+                    IsRemote = false,
+                    GraphQLOperations = GraphQLOperation.Queue,
+                },
+            ]);
+
+        execution = Substitute.For<ITrainExecutionService>();
+        execution
+            .QueueAsync(
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<int>(),
+                Arg.Any<DateTime?>(),
+                Arg.Any<CancellationToken>()
+            )
+            .Returns(new QueueTrainResult(11, "ext-11"));
+        execution
+            .QueueAsync(
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<QueueTrainOptions>(),
+                Arg.Any<CancellationToken>()
+            )
+            .Returns(new QueueTrainResult(12, "ext-12"));
+
+        return new OperationsService(discovery, _factory, new SchedulerConfiguration(), execution);
+    }
+
+    [Test]
+    public async Task RequeueExecution_GoesThroughTheSharedRequeue()
+    {
+        var ops = Substitute.For<IOperationsService>();
+        ops.RequeueExecutionAsync(42, Arg.Any<CancellationToken>())
+            .Returns(new OperationResult(true, Id: 7, Count: 1, Message: "queued"));
+
+        var resp = await new OperationsMutations().RequeueExecution(42, ops, default);
 
         resp.Success.Should().BeTrue();
-        await ops.Received(1)
-            .QueueTrainAsync(
-                Arg.Is<QueueTrainInput>(i =>
-                    i!.TrainName == "Trax.X.RequeueTrain"
-                    && i.InputJson == "{\"v\": 1}"
-                    // The re-queue repeats this run, so it replays this run's decisions.
-                    && i.ReplayDecisionsOf == id
-                ),
+        resp.Id.Should().Be(7);
+        resp.Message.Should().Be("queued");
+        await ops.Received(1).RequeueExecutionAsync(42, Arg.Any<CancellationToken>());
+        await ops.DidNotReceive()
+            .QueueTrainAsync(Arg.Any<QueueTrainInput>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task RequeueExecution_ARunThatRecordedDecisions_IsQueuedToReplayThem()
+    {
+        var id = await SeedRequeueSourceAsync("{\"v\": 1}", recordDecision: true);
+        var ops = RequeueOperations(out var execution);
+
+        var resp = await new OperationsMutations().RequeueExecution(id, ops, default);
+
+        resp.Success.Should().BeTrue(resp.Message);
+        resp.Id.Should().Be(12);
+        await execution
+            .Received(1)
+            .QueueAsync(
+                typeof(IRequeueProbeTrain).FullName!,
+                "{\"v\": 1}",
+                Arg.Is<QueueTrainOptions>(o => o!.ReplayDecisionsOf == id),
+                Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Test]
+    public async Task RequeueExecution_ARunThatRecordedNoDecisions_IsQueuedAsAnOrdinaryEnqueue()
+    {
+        var id = await SeedRequeueSourceAsync("{\"v\": 1}");
+        var ops = RequeueOperations(out var execution);
+
+        var resp = await new OperationsMutations().RequeueExecution(id, ops, default);
+
+        resp.Success.Should().BeTrue(resp.Message);
+        resp.Id.Should().Be(11);
+        await execution
+            .Received(1)
+            .QueueAsync(
+                typeof(IRequeueProbeTrain).FullName!,
+                "{\"v\": 1}",
+                0,
+                null,
+                Arg.Any<CancellationToken>()
+            );
+        await execution
+            .DidNotReceive()
+            .QueueAsync(
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<QueueTrainOptions>(),
                 Arg.Any<CancellationToken>()
             );
     }
@@ -1206,73 +1323,40 @@ public class OperationsQueriesTests
     [Test]
     public async Task RequeueExecution_WithNoSavedInput_ReturnsFalseWithoutQueuing()
     {
-        long id;
-        await using (var db = await _factory.CreateDbContextAsync(default))
-        {
-            var meta = Metadata.Create(
-                new CreateMetadata
-                {
-                    Name = "Trax.X.RequeueTrain",
-                    ExternalId = Guid.NewGuid().ToString("N"),
-                    Input = null,
-                }
-            );
-            await db.Track(meta);
-            await db.SaveChanges(default);
-            id = meta.Id;
-        }
+        var id = await SeedRequeueSourceAsync(null);
+        var ops = RequeueOperations(out var execution);
 
-        var ops = Substitute.For<IOperationsService>();
-
-        var resp = await new OperationsMutations().RequeueExecution(id, _factory, ops, default);
+        var resp = await new OperationsMutations().RequeueExecution(id, ops, default);
 
         resp.Success.Should().BeFalse();
         resp.Message.Should().Contain("no saved input");
-        await ops.DidNotReceive()
-            .QueueTrainAsync(Arg.Any<QueueTrainInput>(), Arg.Any<CancellationToken>());
+        execution.ReceivedCalls().Should().BeEmpty();
     }
 
     [Test]
     public async Task RequeueExecution_WithATruncatedSavedInput_ReturnsFalseWithoutQueuing()
     {
-        long id;
-        await using (var db = await _factory.CreateDbContextAsync(default))
-        {
-            var meta = Metadata.Create(
-                new CreateMetadata
-                {
-                    Name = "Trax.X.RequeueTrain",
-                    ExternalId = Guid.NewGuid().ToString("N"),
-                    Input = null,
-                }
-            );
-            // What an input over MaxParameterBytes is saved as.
-            meta.Input = "{\"_truncated\": true, \"_maxBytes\": 1024}";
-            await db.Track(meta);
-            await db.SaveChanges(default);
-            id = meta.Id;
-        }
+        // What an input over MaxParameterBytes is saved as.
+        var id = await SeedRequeueSourceAsync("{\"_truncated\": true, \"_maxBytes\": 1024}");
+        var ops = RequeueOperations(out var execution);
 
-        var ops = Substitute.For<IOperationsService>();
-
-        var resp = await new OperationsMutations().RequeueExecution(id, _factory, ops, default);
+        var resp = await new OperationsMutations().RequeueExecution(id, ops, default);
 
         resp.Success.Should().BeFalse();
         resp.Message.Should().Contain("too large to save");
-        await ops.DidNotReceive()
-            .QueueTrainAsync(Arg.Any<QueueTrainInput>(), Arg.Any<CancellationToken>());
+        execution.ReceivedCalls().Should().BeEmpty();
     }
 
     [Test]
     public async Task RequeueExecution_MissingId_ReturnsFalseWithoutQueuing()
     {
-        var ops = Substitute.For<IOperationsService>();
+        var ops = RequeueOperations(out var execution);
 
-        var resp = await new OperationsMutations().RequeueExecution(999999, _factory, ops, default);
+        var resp = await new OperationsMutations().RequeueExecution(999999, ops, default);
 
         resp.Success.Should().BeFalse();
-        await ops.DidNotReceive()
-            .QueueTrainAsync(Arg.Any<QueueTrainInput>(), Arg.Any<CancellationToken>());
+        resp.Message.Should().Be("Execution 999999 not found.");
+        execution.ReceivedCalls().Should().BeEmpty();
     }
 
     [Test]
@@ -1850,6 +1934,8 @@ public class OperationsQueriesTests
     }
 
     #endregion
+
+    public interface IRequeueProbeTrain;
 
     private interface ISomeFakeTrain
         : Trax.Effect.Services.ServiceTrain.IServiceTrain<FakeInput, FakeOutput> { }
