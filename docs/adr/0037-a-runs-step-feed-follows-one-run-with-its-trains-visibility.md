@@ -80,6 +80,5 @@ before; that is the client's half.
 
 ## Changelog
 
+- **2026-10-02**: Answers withheld from broadcast subscribers unless the host opts in.
 - **2026-10-02**: Recorded.
-- **2026-10-02**: Answers withheld from broadcast subscribers by default, with
-  `AllowJunctionAnswersForBroadcastSubscribers()` as the opt-in, to match the SignalR payload.
