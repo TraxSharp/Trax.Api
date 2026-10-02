@@ -41,7 +41,8 @@ public class JunctionEventSubscriptionTests
         "subscription { onJunctionEvent(metadataId: "
         + metadataId
         + ") { sequence metadataId trainName eventType junction { position kind name state "
-        + "answer confidence answerWithheld decider failureException failureClass attempt } } }";
+        + "questionKey answer confidence answerWithheld decider failureException failureClass "
+        + "attempt } } }";
 
     public interface IAdminOnlyTrain;
 
@@ -225,6 +226,81 @@ public class JunctionEventSubscriptionTests
     }
 
     [Test]
+    public async Task BroadcastView_WithholdsAnswersByDefault()
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IPublicTrain>(anonymous: true));
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(Decided(typeof(IPublicTrain).FullName!, withheld: false))
+        );
+
+        var step = Step(received);
+        step["answer"]
+            .Should()
+            .BeNull(
+                "outside the operations view an answer is shown only when the host opts in, per "
+                    + Adr
+            );
+        step["confidence"].Should().BeNull();
+        step["answerWithheld"].Should().Be(false);
+        step["questionKey"].Should().Be("Lane", "that the question was asked is still shown");
+    }
+
+    [Test]
+    public async Task BroadcastView_WithTheOptIn_ShowsAnswers()
+    {
+        var executor = await BuildAsync(
+            g => g.AllowJunctionAnswersForBroadcastSubscribers(),
+            Broadcast<IPublicTrain>(anonymous: true)
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(Decided(typeof(IPublicTrain).FullName!, withheld: false))
+        );
+
+        var step = Step(received);
+        step["answer"].Should().Be("Fast");
+        step["confidence"].Should().Be(0.8);
+        step["decider"].Should().BeNull("the opt-in shares answers, not host detail");
+    }
+
+    [Test]
+    public async Task BroadcastView_WithTheOptIn_StillWithholdsASensitiveAnswer()
+    {
+        var executor = await BuildAsync(
+            g => g.AllowJunctionAnswersForBroadcastSubscribers(),
+            Broadcast<IPublicTrain>(anonymous: true)
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(Decided(typeof(IPublicTrain).FullName!, withheld: true))
+        );
+
+        var step = Step(received);
+        step["answerWithheld"].Should().Be(true);
+        step["answer"].Should().BeNull("a [TraxSensitive] answer is withheld from everyone");
+        step["confidence"].Should().BeNull();
+    }
+
+    [Test]
+    public async Task OperationsView_AlwaysShowsAnswers()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Admin"));
+
+        var received = await sub.NextAsync(() => Handle(Decided("Some.Train", withheld: false)));
+
+        var step = Step(received);
+        step["answer"].Should().Be("Fast");
+        step["confidence"].Should().Be(0.8);
+    }
+
+    [Test]
     public async Task WithheldAnswer_IsNullEvenWhenThePayloadCarriesOne()
     {
         var executor = await BuildAsync(g =>
@@ -399,6 +475,25 @@ public class JunctionEventSubscriptionTests
                 "Step",
                 JunctionRunState.InProgress,
                 DateTime.UtcNow
+            )
+        );
+
+    private static TrainLifecycleEventMessage Decided(string train, bool withheld) =>
+        Message(
+            train,
+            Run,
+            TrainLifecycleEventMessage.DecidedEventType,
+            new JunctionEventPayload(
+                Position: 1,
+                Kind: JunctionRunKind.Choice,
+                Name: "Lane",
+                State: JunctionRunState.Completed,
+                StartedAt: DateTime.UtcNow,
+                QuestionKey: "Lane",
+                Answer: "Fast",
+                Confidence: 0.8,
+                Decider: "My.Deciders.ModelDecider",
+                AnswerWithheld: withheld
             )
         );
 

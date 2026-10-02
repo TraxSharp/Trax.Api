@@ -33,7 +33,8 @@ namespace Trax.Api.GraphQL.Subscriptions;
 internal sealed class LifecycleSubscriptionAccess(
     GraphQLConfiguration configuration,
     ITrainDiscoveryService discovery,
-    IAuthorizationService authorization
+    IAuthorizationService authorization,
+    TrainLifecycleStreamOptions streamOptions
 )
 {
     /// <summary>What replaces a failure reason a broadcast subscriber may not see.</summary>
@@ -57,7 +58,10 @@ internal sealed class LifecycleSubscriptionAccess(
             if (await SatisfiesTrainAsync(user, train).ConfigureAwait(false))
                 trains.Add(train.ServiceType.FullName!);
 
-        return new LifecycleVisibility(All: false, trains);
+        return new LifecycleVisibility(All: false, trains)
+        {
+            JunctionAnswers = streamOptions.IncludeJunctionAnswersForBroadcastSubscribers,
+        };
     }
 
     /// <summary>
@@ -141,6 +145,12 @@ internal sealed record LifecycleVisibility(bool All, IReadOnlySet<string> Trains
     public bool IsEmpty => !All && Trains.Count == 0;
 
     /// <summary>
+    /// Outside the operations view, whether the answers on a run's steps are shown. Off unless the
+    /// host called <c>AllowJunctionAnswersForBroadcastSubscribers()</c>.
+    /// </summary>
+    public bool JunctionAnswers { get; init; }
+
+    /// <summary>
     /// The event as this subscriber should see it, or <c>null</c> when it should not see it.
     /// </summary>
     public TrainLifecycleEvent? Present(TrainLifecycleEvent e)
@@ -170,7 +180,8 @@ internal sealed record LifecycleVisibility(bool All, IReadOnlySet<string> Trains
     /// <remarks>
     /// Outside the operations view the host detail a step carries is withheld, as it is from a
     /// train event: the decider's type name, and the exception type of a failure unless it is a
-    /// <c>TrainException</c>, the one a train raises for its clients.
+    /// <c>TrainException</c>, the one a train raises for its clients. The answer and confidence
+    /// are withheld too unless the host opted in (<see cref="JunctionAnswers"/>).
     /// </remarks>
     public JunctionEvent? Present(JunctionEvent e)
     {
@@ -186,6 +197,8 @@ internal sealed record LifecycleVisibility(bool All, IReadOnlySet<string> Trains
             Junction = step with
             {
                 Decider = null,
+                Answer = JunctionAnswers ? step.Answer : null,
+                Confidence = JunctionAnswers ? step.Confidence : null,
                 FailureException = string.Equals(
                     step.FailureException,
                     "TrainException",

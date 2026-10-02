@@ -243,6 +243,8 @@ public class JunctionEventsE2ETests
             .Should()
             .OnlyContain(s =>
                 s.Fields.GetProperty("decider").ValueKind == JsonValueKind.Null
+                && s.Fields.GetProperty("answer").ValueKind == JsonValueKind.Null
+                && s.Fields.GetProperty("confidence").ValueKind == JsonValueKind.Null
                 && s.Fields.GetProperty("failureException").ValueKind == JsonValueKind.Null
             );
         player.Received.Should().NotContain(Marker);

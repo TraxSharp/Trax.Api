@@ -44,9 +44,17 @@ on a read, which no query has today; the timeline answers to the gate that answe
 ## Consequences
 
 **Outside the operations view a step loses host detail**, as a train event does: the decider's
-type name, and a failure's exception type unless it is a `TrainException`. The answer the run acted
-on is shown, as a train's output is; an answer to a `[TraxSensitive]` question is never present,
-live or recorded.
+type name, and a failure's exception type unless it is a `TrainException`.
+
+**Outside the operations view a step carries no answer unless the host opts in.** `answer` and
+`confidence` are null for a broadcast subscriber until the host calls
+`AllowJunctionAnswersForBroadcastSubscribers()`, which sets
+`TrainLifecycleStreamOptions.IncludeJunctionAnswersForBroadcastSubscribers`. An answer can reveal as
+much about a run as its output, and a broadcast subscriber is anyone the train's posture admits, so
+a default that published it would be an open default; SignalR's junction payload makes the same
+choice (`WithJunctionAnswers()`). The subscriber still sees that a question was asked, its key and
+the step that followed. The operations view always sees answers, and an answer to a
+`[TraxSensitive]` question is never present for anyone, live or recorded, opt-in or not.
 
 **A loss is reported whichever run it came from.** The topic carries every run's steps, so a gap
 in another run's steps shows as a skip in `sequence`, as a hidden train's lost event does in 0032.
@@ -59,7 +67,8 @@ in-memory topic, so it adds nothing slow to a junction.
 - `JunctionEventSubscriptionTests` pins the rule: a gated caller and an anonymous one are refused,
   a broadcast subscriber receives none of a train it cannot see and no host detail of one it can,
   only the subscribed run's steps arrive, a withheld answer stays null, a train that is not
-  broadcast publishes nothing, and `metadataId` is required.
+  broadcast publishes nothing, `metadataId` is required, and a broadcast subscriber sees answers
+  only with the host's opt-in while the operations view always does.
 - `JunctionEventsE2ETests` holds it end to end with a real run over a real socket: a secret in the
   train's input, output and failure message reaches no subscriber and no timeline read, the
   sensitive answer is absent everywhere, and `operations.junctionRuns` is denied exactly when
@@ -72,3 +81,5 @@ before; that is the client's half.
 ## Changelog
 
 - **2026-10-02**: Recorded.
+- **2026-10-02**: Answers withheld from broadcast subscribers by default, with
+  `AllowJunctionAnswersForBroadcastSubscribers()` as the opt-in, to match the SignalR payload.

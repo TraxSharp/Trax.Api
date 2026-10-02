@@ -119,6 +119,12 @@ public class GraphQLConfiguration
     internal bool GetRequestsAllowed { get; init; }
 
     /// <summary>
+    /// Whether broadcast subscribers see the answers on <c>onJunctionEvent</c>, set by
+    /// <c>TraxGraphQLBuilder.AllowJunctionAnswersForBroadcastSubscribers()</c>. Off by default.
+    /// </summary>
+    internal bool JunctionAnswersForBroadcastAllowed { get; init; }
+
+    /// <summary>
     /// The classes the query models reach through their properties that are not query models
     /// themselves, with the posture each declares. See <see cref="NavigationTargetPosture"/>.
     /// </summary>

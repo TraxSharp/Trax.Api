@@ -170,7 +170,12 @@ public static class GraphQLServiceExtensions
         // curates user-facing subscriptions. So the lifecycle hooks stream all trains here.
         var operationsExposed = config.OperationQueriesExposed || config.OperationMutationsExposed;
         services.AddSingleton(
-            new TrainLifecycleStreamOptions { StreamAllTrains = operationsExposed }
+            new TrainLifecycleStreamOptions
+            {
+                StreamAllTrains = operationsExposed,
+                IncludeJunctionAnswersForBroadcastSubscribers =
+                    config.JunctionAnswersForBroadcastAllowed,
+            }
         );
         services.AddSingleton<LifecycleStreamRule>();
 

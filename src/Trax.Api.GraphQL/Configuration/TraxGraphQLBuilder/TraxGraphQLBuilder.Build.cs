@@ -88,6 +88,7 @@ public partial class TraxGraphQLBuilder
         )
         {
             GetRequestsAllowed = GetRequestsAllowed,
+            JunctionAnswersForBroadcastAllowed = JunctionAnswersForBroadcastAllowed,
             SocketAllowedOrigins = SocketAllowedOrigins,
             MaxOperationsPerConnection = MaxOperationsPerConnectionValue,
             NavigationTargets = NavigationTargetPosture.Discover(
