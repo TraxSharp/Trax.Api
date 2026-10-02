@@ -172,6 +172,7 @@ public static class GraphQLServiceExtensions
         services.AddSingleton(
             new TrainLifecycleStreamOptions { StreamAllTrains = operationsExposed }
         );
+        services.AddSingleton<LifecycleStreamRule>();
 
         // Fail fast at startup if the operations surface is exposed without its backing services,
         // instead of masking a runtime "Unexpected Execution Error" per request.
@@ -210,6 +211,8 @@ public static class GraphQLServiceExtensions
         graphqlBuilder
             .AddSubscriptionType<LifecycleSubscriptions>()
             .AddType<TrainLifecycleEventType>()
+            .AddType<JunctionEventGraphType>()
+            .AddType<JunctionStepGraphType>()
             .AddTypeModule<TrainTypeModule>()
             // The schema container does not forward to the application one, so the filter's
             // logger comes from the root provider HotChocolate exposes for exactly this.
@@ -457,6 +460,12 @@ public static class GraphQLServiceExtensions
         // is therefore always present when this line runs.
         services.AddTransient<ITrainEventHandler, GraphQLTrainEventHandler>();
         services.AddTransient<ITrainEventHandler, GraphQLDataChangeHandler>();
+
+        // Junction events reach this handler two ways: on the run's path for a run on this host,
+        // and through TrainEventReceiverService for a run on another. Neither happens unless the
+        // host called AddJunctionEvents(), so without it this is never resolved. A singleton,
+        // because the run's path resolves it once per step and it holds no per-request state.
+        services.AddSingleton<IJunctionEventHandler, GraphQLJunctionEventHandler>();
 
         return services;
     }

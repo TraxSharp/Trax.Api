@@ -51,9 +51,25 @@ internal sealed class LifecycleEventPublisher
     /// Numbers <paramref name="lifecycleEvent"/> as the next event on <paramref name="topic"/> and
     /// sends it. A send that throws uses no number.
     /// </summary>
-    public async ValueTask PublishAsync(
+    public ValueTask PublishAsync(
         string topic,
         TrainLifecycleEvent lifecycleEvent,
+        CancellationToken ct
+    ) => PublishAsync(topic, next => lifecycleEvent with { PublishSequence = next }, ct);
+
+    /// <summary>
+    /// Numbers <paramref name="junctionEvent"/> as the next event on <paramref name="topic"/> and
+    /// sends it, exactly as a train lifecycle event is. A send that throws uses no number.
+    /// </summary>
+    public ValueTask PublishAsync(
+        string topic,
+        JunctionEvent junctionEvent,
+        CancellationToken ct
+    ) => PublishAsync(topic, next => junctionEvent with { PublishSequence = next }, ct);
+
+    private async ValueTask PublishAsync<T>(
+        string topic,
+        Func<long, T> numbered,
         CancellationToken ct
     )
     {
@@ -62,9 +78,7 @@ internal sealed class LifecycleEventPublisher
         try
         {
             var next = sequence.Last + 1;
-            await _sender
-                .SendAsync(topic, lifecycleEvent with { PublishSequence = next }, ct)
-                .ConfigureAwait(false);
+            await _sender.SendAsync(topic, numbered(next), ct).ConfigureAwait(false);
             sequence.Last = next;
         }
         finally

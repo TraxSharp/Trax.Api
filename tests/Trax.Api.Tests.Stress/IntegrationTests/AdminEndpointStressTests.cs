@@ -895,6 +895,34 @@ public class AdminEndpointStressTests : StressTestSetup
     }
 
     [Test]
+    public async Task JunctionRuns_WithinBudget()
+    {
+        // Eight steps for each of the newest 250k runs, ~2M rows, so the read of one run's
+        // timeline is measured against a table of real size. Idempotent across runs.
+        await ExecSqlAsync(
+            """
+            INSERT INTO trax.junction_run (metadata_id, position, kind, name, state, started_at, ended_at)
+            SELECT m.id, p.position, 'junction', 'StressStep' || p.position, 'completed',
+                   m.start_time, m.start_time + interval '5 milliseconds'
+            FROM (SELECT id, start_time FROM trax.metadata ORDER BY id DESC LIMIT 250000) m
+            CROSS JOIN generate_series(0, 7) AS p(position)
+            ON CONFLICT (metadata_id, position) DO NOTHING
+            """
+        );
+        var runId = await ScalarAsync<long>("SELECT max(metadata_id) FROM trax.junction_run");
+
+        await MeasureAsync(
+            "operations.junctionRuns",
+            ListBudget,
+            async (sp, ct) =>
+            {
+                var steps = await new OperationsQueries().GetJunctionRuns(runId, Factory(sp), ct);
+                steps.Should().HaveCount(8);
+            }
+        );
+    }
+
+    [Test]
     public async Task ExecutionDetail_WithChildCount_WithinBudget()
     {
         await MeasureAsync(

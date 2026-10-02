@@ -1862,6 +1862,43 @@ public class OperationsQueriesTests
     }
 
     [Test]
+    public async Task ManifestReads_CarryWhetherARetryReplaysDecisions()
+    {
+        var groupId = await SeedManifestGroup("replay-group");
+        long optedOut;
+        long byDefault;
+        await using (var db = await _factory.CreateDbContextAsync(default))
+        {
+            var off = Manifest.Create(new CreateManifest { Name = typeof(SomeFakeTrain) });
+            off.ManifestGroupId = groupId;
+            off.ReplayDecisionsOnRetry = false;
+            var on = Manifest.Create(new CreateManifest { Name = typeof(SomeFakeTrain) });
+            on.ManifestGroupId = groupId;
+            await db.Track(off);
+            await db.Track(on);
+            await db.SaveChanges(default);
+            optedOut = off.Id;
+            byDefault = on.Id;
+        }
+
+        var queries = new OperationsQueries();
+
+        (await queries.GetManifest(optedOut, _factory, default))!
+            .ReplayDecisionsOnRetry.Should()
+            .BeFalse();
+        (await queries.GetManifest(byDefault, _factory, default))!
+            .ReplayDecisionsOnRetry.Should()
+            .BeTrue();
+        (await queries.GetManifestDetail(optedOut, _factory, Discovery, default))!
+            .ReplayDecisionsOnRetry.Should()
+            .BeFalse();
+        (await queries.GetManifests(_factory, default, manifestGroupId: groupId))
+            .Items.Should()
+            .Contain(m => m.Id == optedOut && !m.ReplayDecisionsOnRetry)
+            .And.Contain(m => m.Id == byDefault && m.ReplayDecisionsOnRetry);
+    }
+
+    [Test]
     public async Task GetManifestDetail_MissingId_ReturnsNull()
     {
         (await new OperationsQueries().GetManifestDetail(99999, _factory, Discovery, default))

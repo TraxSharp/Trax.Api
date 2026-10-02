@@ -162,4 +162,38 @@ internal sealed record LifecycleVisibility(bool All, IReadOnlySet<string> Trains
             HostEnvironment = null,
         };
     }
+
+    /// <summary>
+    /// The junction event as this subscriber should see it, or <c>null</c> when it should not see
+    /// it: exactly when it would not see the train's own events.
+    /// </summary>
+    /// <remarks>
+    /// Outside the operations view the host detail a step carries is withheld, as it is from a
+    /// train event: the decider's type name, and the exception type of a failure unless it is a
+    /// <c>TrainException</c>, the one a train raises for its clients.
+    /// </remarks>
+    public JunctionEvent? Present(JunctionEvent e)
+    {
+        if (All)
+            return e;
+
+        if (!Trains.Contains(e.TrainName))
+            return null;
+
+        var step = e.Junction;
+        return e with
+        {
+            Junction = step with
+            {
+                Decider = null,
+                FailureException = string.Equals(
+                    step.FailureException,
+                    "TrainException",
+                    StringComparison.Ordinal
+                )
+                    ? step.FailureException
+                    : null,
+            },
+        };
+    }
 }

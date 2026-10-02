@@ -1,0 +1,549 @@
+using System.Security.Claims;
+using FluentAssertions;
+using HotChocolate.Execution;
+using HotChocolate.Subscriptions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using Trax.Api.DTOs;
+using Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder;
+using Trax.Api.GraphQL.Hooks;
+using Trax.Api.GraphQL.Subscriptions;
+using Trax.Core.Exceptions;
+using Trax.Effect.Attributes;
+using Trax.Effect.Configuration.TraxBuilder;
+using Trax.Effect.Enums;
+using Trax.Effect.Services.EffectRegistry;
+using Trax.Effect.Services.TrainEventBroadcaster;
+using Trax.Mediator.Services.TrainDiscovery;
+
+namespace Trax.Api.Tests;
+
+/// <summary>
+/// <c>onJunctionEvent</c> carries the authorization of the train events of the run it follows:
+/// the same forwarding rule decides whether a train's steps are published at all, the same
+/// per-subscriber visibility decides who receives them, with the same host detail withheld outside
+/// the operations view, and the same refusal at subscribe time for a subscriber who could receive
+/// nothing.
+///
+/// <para>Enforces <c>docs/adr/0037-a-runs-step-feed-follows-one-run-with-its-trains-visibility.md</c>.</para>
+/// </summary>
+[Property("adr", "docs/adr/0037-a-runs-step-feed-follows-one-run-with-its-trains-visibility.md")]
+[TestFixture]
+public class JunctionEventSubscriptionTests
+{
+    private const string Adr =
+        "docs/adr/0037-a-runs-step-feed-follows-one-run-with-its-trains-visibility.md";
+
+    private const long Run = 42;
+
+    private static string OnJunctionEvent(long metadataId) =>
+        "subscription { onJunctionEvent(metadataId: "
+        + metadataId
+        + ") { sequence metadataId trainName eventType junction { position kind name state "
+        + "answer confidence answerWithheld decider failureException failureClass attempt } } }";
+
+    public interface IAdminOnlyTrain;
+
+    public interface IPublicTrain;
+
+    public interface IUnbroadcastTrain;
+
+    private ServiceProvider? _provider;
+
+    [TearDown]
+    public async Task TearDown()
+    {
+        if (_provider is not null)
+            await _provider.DisposeAsync();
+        _provider = null;
+    }
+
+    #region Who may subscribe
+
+    [Test]
+    public async Task OperationsGatedByRole_Player_IsRefused()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+
+        (await SubscribeAsync(executor, OnJunctionEvent(Run), User("Player")))
+            .Refused.Should()
+            .BeTrue("a run's steps carry the authorization of its train events, per " + Adr);
+    }
+
+    [Test]
+    public async Task OperationsGatedByRole_Anonymous_IsRefused()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+
+        (await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous()))
+            .Refused.Should()
+            .BeTrue();
+    }
+
+    [Test]
+    public async Task OnlyAuthorizedBroadcastTrains_Anonymous_IsRefused()
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IAdminOnlyTrain>(roles: "Admin"));
+
+        (await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous()))
+            .Refused.Should()
+            .BeTrue("a subscriber who could receive nothing is refused, per " + Adr);
+    }
+
+    [Test]
+    public async Task MetadataId_IsRequired()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+
+        var result = await executor.ExecuteAsync(
+            OperationRequestBuilder
+                .New()
+                .SetDocument("subscription { onJunctionEvent { sequence } }")
+                .SetGlobalState("ClaimsPrincipal", User("Admin"))
+                .Build()
+        );
+
+        result
+            .Should()
+            .BeOfType<OperationResult>("a subscription without a run is a validation error")
+            .Which.Errors.Should()
+            .NotBeNullOrEmpty();
+    }
+
+    #endregion
+
+    #region What each subscriber receives
+
+    [Test]
+    public async Task OperationsGatedByRole_Admin_ReceivesTheRunsStepsWithFullDetail()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Admin"));
+        sub.Refused.Should().BeFalse();
+
+        var received = await sub.NextAsync(() =>
+            Handle(Failed("Some.Unbroadcast.Train", Run, exception: "NpgsqlException"))
+        );
+
+        received["trainName"].Should().Be("Some.Unbroadcast.Train");
+        received["eventType"].Should().Be("JUNCTION_FAILED");
+        received["sequence"].Should().Be(1L);
+        var step = Step(received);
+        step["failureException"].Should().Be("NpgsqlException");
+        step["failureClass"].Should().Be("TRANSIENT");
+        step["decider"].Should().Be("My.Deciders.ModelDecider");
+        step["attempt"].Should().Be(2);
+    }
+
+    [Test]
+    public async Task OnlyTheSubscribedRunsSteps_AreDelivered()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Admin"));
+
+        var received = await sub.NextAsync(() =>
+        {
+            Handle(Started("Some.Train", Run + 1, position: 7));
+            Handle(Started("Some.Train", Run, position: 3));
+        });
+
+        received["metadataId"].Should().Be(Run);
+        Step(received)["position"].Should().Be(3, "a subscription follows one run");
+    }
+
+    [Test]
+    public async Task BroadcastTrainGatedByRole_PlayerReceivesNoneOfItsSteps()
+    {
+        var executor = await BuildAsync(
+            g => g,
+            Broadcast<IAdminOnlyTrain>(roles: "Admin"),
+            Broadcast<IPublicTrain>(anonymous: true)
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Player"));
+        sub.Refused.Should().BeFalse();
+
+        // The gated train's step goes first, for the same run id; the first thing the player
+        // receives must be the public one.
+        var received = await sub.NextAsync(() =>
+        {
+            Handle(Started(typeof(IAdminOnlyTrain).FullName!, Run, position: 0));
+            Handle(Started(typeof(IPublicTrain).FullName!, Run, position: 1));
+        });
+
+        received["trainName"]
+            .Should()
+            .Be(
+                typeof(IPublicTrain).FullName,
+                "a subscriber who would not see a train's events sees none of its steps, per " + Adr
+            );
+    }
+
+    [Test]
+    public async Task BroadcastView_WithholdsHostDetail()
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IPublicTrain>(anonymous: true));
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(Failed(typeof(IPublicTrain).FullName!, Run, exception: "NpgsqlException"))
+        );
+
+        var step = Step(received);
+        step["failureException"]
+            .Should()
+            .BeNull(
+                "outside the operations view an exception type is host detail, as a train "
+                    + "event's failure reason is, per "
+                    + Adr
+            );
+        step["decider"].Should().BeNull();
+        step["failureClass"].Should().Be("TRANSIENT");
+    }
+
+    [Test]
+    public async Task BroadcastView_TrainExceptionType_IsShown()
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IPublicTrain>(anonymous: true));
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(Failed(typeof(IPublicTrain).FullName!, Run, exception: "TrainException"))
+        );
+
+        Step(received)["failureException"].Should().Be("TrainException");
+    }
+
+    [Test]
+    public async Task WithheldAnswer_IsNullEvenWhenThePayloadCarriesOne()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Admin"));
+
+        var received = await sub.NextAsync(() =>
+            Handle(
+                Message(
+                    "Some.Train",
+                    Run,
+                    TrainLifecycleEventMessage.DecidedEventType,
+                    new JunctionEventPayload(
+                        Position: 1,
+                        Kind: JunctionRunKind.Choice,
+                        Name: "Tier",
+                        State: JunctionRunState.Completed,
+                        StartedAt: DateTime.UtcNow,
+                        QuestionKey: "Tier",
+                        Answer: "Red",
+                        Confidence: 0.9,
+                        AnswerWithheld: true
+                    )
+                )
+            )
+        );
+
+        var step = Step(received);
+        step["answerWithheld"].Should().Be(true);
+        step["answer"].Should().BeNull("a [TraxSensitive] question's answer is never published");
+        step["confidence"].Should().BeNull();
+    }
+
+    #endregion
+
+    #region What is published at all
+
+    [Test]
+    public async Task TrainWithoutBroadcast_StreamAllTrainsOff_PublishesNothing()
+    {
+        var sender = Substitute.For<ITopicEventSender>();
+        var discovery = Substitute.For<ITrainDiscoveryService>();
+        discovery.DiscoverTrains().Returns([Broadcast<IPublicTrain>(anonymous: true)]);
+        var handler = new GraphQLJunctionEventHandler(
+            sender,
+            new LifecycleStreamRule(discovery, new TrainLifecycleStreamOptions())
+        );
+
+        await handler.HandleAsync(Started(typeof(IUnbroadcastTrain).FullName!, Run, 0), default);
+
+        await sender
+            .DidNotReceiveWithAnyArgs()
+            .SendAsync(default(string)!, default(JunctionEvent)!, default);
+    }
+
+    [Test]
+    public async Task BroadcastTrain_StreamAllTrainsOff_IsPublished()
+    {
+        var sender = Substitute.For<ITopicEventSender>();
+        var discovery = Substitute.For<ITrainDiscoveryService>();
+        discovery.DiscoverTrains().Returns([Broadcast<IPublicTrain>(anonymous: true)]);
+        var handler = new GraphQLJunctionEventHandler(
+            sender,
+            new LifecycleStreamRule(discovery, new TrainLifecycleStreamOptions())
+        );
+
+        await handler.HandleAsync(Started(typeof(IPublicTrain).FullName!, Run, 0), default);
+
+        await sender
+            .Received(1)
+            .SendAsync(
+                nameof(LifecycleSubscriptions.OnJunctionEvent),
+                Arg.Is<JunctionEvent>(e => e != null && e.MetadataId == Run),
+                Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Test]
+    public async Task TrainEvent_IsNotForwardedAsAJunctionEvent()
+    {
+        var sender = Substitute.For<ITopicEventSender>();
+        var discovery = Substitute.For<ITrainDiscoveryService>();
+        discovery.DiscoverTrains().Returns([Broadcast<IPublicTrain>(anonymous: true)]);
+        var handler = new GraphQLJunctionEventHandler(
+            sender,
+            new LifecycleStreamRule(discovery, new TrainLifecycleStreamOptions())
+        );
+
+        await handler.HandleAsync(
+            Message(typeof(IPublicTrain).FullName!, Run, "Completed", junction: null),
+            default
+        );
+
+        await sender
+            .DidNotReceiveWithAnyArgs()
+            .SendAsync(default(string)!, default(JunctionEvent)!, default);
+    }
+
+    [Test]
+    public void TheHandler_IsRegisteredForJunctionEvents()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<TraxMarker>();
+        services.AddSingleton(Substitute.For<ITrainDiscoveryService>());
+        services.AddSingleton(Substitute.For<IEffectRegistry>());
+        services.AddTraxGraphQLForTesting();
+
+        services
+            .Should()
+            .Contain(sd =>
+                sd.ServiceType == typeof(IJunctionEventHandler)
+                && sd.ImplementationType == typeof(GraphQLJunctionEventHandler)
+            );
+
+        // A singleton handler may hold only singletons: the run's path resolves it per step.
+        services
+            .Where(sd => sd.ServiceType == typeof(ITopicEventSender))
+            .Should()
+            .OnlyContain(sd => sd.Lifetime == ServiceLifetime.Singleton);
+    }
+
+    #endregion
+
+    #region Helpers
+
+    private static IReadOnlyDictionary<string, object?> Step(
+        IReadOnlyDictionary<string, object?> received
+    ) => (IReadOnlyDictionary<string, object?>)received["junction"]!;
+
+    private static ClaimsPrincipal User(string role) =>
+        new(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.Name, role), new Claim(ClaimTypes.Role, role)],
+                "Test"
+            )
+        );
+
+    private static ClaimsPrincipal Anonymous() => new(new ClaimsIdentity());
+
+    private static TrainRegistration Broadcast<T>(string? roles = null, bool anonymous = false) =>
+        new()
+        {
+            ServiceType = typeof(T),
+            ImplementationType = typeof(T),
+            InputType = typeof(object),
+            OutputType = typeof(object),
+            Lifetime = ServiceLifetime.Transient,
+            ServiceTypeName = typeof(T).FullName!,
+            ImplementationTypeName = typeof(T).FullName!,
+            InputTypeName = "Object",
+            OutputTypeName = "Object",
+            RequiredPolicies = [],
+            RequiredRoles = roles is null ? [] : [roles],
+            HasAuthorizeAttribute = !anonymous,
+            HasAllowAnonymousAttribute = anonymous,
+            IsQuery = false,
+            IsMutation = false,
+            IsBroadcastEnabled = true,
+            GraphQLOperations = GraphQLOperation.Run,
+            IsRemote = false,
+        };
+
+    private static TrainLifecycleEventMessage Started(string train, long run, int position) =>
+        Message(
+            train,
+            run,
+            TrainLifecycleEventMessage.JunctionStartedEventType,
+            new JunctionEventPayload(
+                position,
+                JunctionRunKind.Junction,
+                "Step",
+                JunctionRunState.InProgress,
+                DateTime.UtcNow
+            )
+        );
+
+    private static TrainLifecycleEventMessage Failed(string train, long run, string exception) =>
+        Message(
+            train,
+            run,
+            TrainLifecycleEventMessage.JunctionFailedEventType,
+            new JunctionEventPayload(
+                Position: 2,
+                Kind: JunctionRunKind.Junction,
+                Name: "Charge",
+                State: JunctionRunState.Failed,
+                StartedAt: DateTime.UtcNow,
+                EndedAt: DateTime.UtcNow,
+                DurationMs: 3,
+                FailureClass: FailureClass.Transient,
+                FailureException: exception,
+                Decider: "My.Deciders.ModelDecider",
+                Attempt: 2
+            )
+        );
+
+    private static TrainLifecycleEventMessage Message(
+        string train,
+        long run,
+        string eventType,
+        JunctionEventPayload? junction
+    ) =>
+        new(
+            MetadataId: run,
+            ExternalId: "ext-" + run,
+            TrainName: train,
+            TrainState: nameof(TrainState.InProgress),
+            Timestamp: DateTime.UtcNow,
+            FailureJunction: null,
+            FailureReason: null,
+            EventType: eventType,
+            Executor: null,
+            Output: null,
+            HostName: "worker-1",
+            HostEnvironment: "Production"
+        )
+        {
+            Junction = junction,
+        };
+
+    private void Handle(TrainLifecycleEventMessage message)
+    {
+        foreach (var handler in _provider!.GetServices<IJunctionEventHandler>())
+            handler.HandleAsync(message, default).GetAwaiter().GetResult();
+    }
+
+    private async Task<IRequestExecutor> BuildAsync(
+        Func<TraxGraphQLBuilder, TraxGraphQLBuilder> configure,
+        params TrainRegistration[] trains
+    )
+    {
+        var discovery = Substitute.For<ITrainDiscoveryService>();
+        discovery.DiscoverTrains().Returns(trains);
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<TraxMarker>();
+        services.AddSingleton(discovery);
+        services.AddSingleton(Substitute.For<IEffectRegistry>());
+        // A query root the broadcast-only hosts need; its fields are irrelevant here.
+        services.AddDbContext<OrderTestDbContext>(o =>
+            o.UseInMemoryDatabase("JunctionEventSubscription_" + Guid.NewGuid())
+        );
+        Trax.Api.GraphQL.Extensions.GraphQLServiceExtensions.AddTraxGraphQL(
+            services,
+            g => configure(g.AddDbContext<OrderTestDbContext>())
+        );
+
+        _provider = services.BuildServiceProvider();
+        return await _provider
+            .GetRequiredService<IRequestExecutorProvider>()
+            .GetExecutorAsync("trax");
+    }
+
+    private static async Task<Subscription> SubscribeAsync(
+        IRequestExecutor executor,
+        string query,
+        ClaimsPrincipal user
+    )
+    {
+        var result = await executor.ExecuteAsync(
+            OperationRequestBuilder
+                .New()
+                .SetDocument(query)
+                .SetGlobalState("ClaimsPrincipal", user)
+                .Build()
+        );
+
+        return result is IResponseStream stream ? new Subscription(stream) : new Subscription(null);
+    }
+
+    private sealed class Subscription(IResponseStream? stream) : IAsyncDisposable
+    {
+        public bool Refused => stream is null;
+
+        /// <summary>
+        /// Publishes with <paramref name="publish"/> until the subscriber receives something, and
+        /// returns the first payload it receives.
+        /// </summary>
+        public async Task<IReadOnlyDictionary<string, object?>> NextAsync(Action publish)
+        {
+            stream.Should().NotBeNull();
+            var received = new TaskCompletionSource<OperationResult>(
+                TaskCreationOptions.RunContinuationsAsynchronously
+            );
+            var reader = Task.Run(async () =>
+            {
+                await foreach (var item in stream!.ReadResultsAsync())
+                {
+                    received.TrySetResult(item);
+                    break;
+                }
+            });
+
+            // Publish until the subscriber picks one up: ExecuteAsync can return before the topic
+            // subscription is registered, so a single publish can race ahead of it.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (!received.Task.IsCompleted && DateTime.UtcNow < deadline)
+            {
+                publish();
+                // allowed-delay: re-publish interval, bounded by the 10s deadline; WhenAny wakes
+                // the instant the subscriber receives.
+                await Task.WhenAny(received.Task, Task.Delay(100));
+            }
+
+            received.Task.IsCompleted.Should().BeTrue("an event should reach the subscriber");
+            var payload = await received.Task;
+            payload.Errors.Should().BeNullOrEmpty();
+            await reader;
+            return (IReadOnlyDictionary<string, object?>)payload.DataMap()["onJunctionEvent"]!;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (stream is not null)
+                await stream.DisposeAsync();
+        }
+    }
+
+    #endregion
+}
