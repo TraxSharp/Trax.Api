@@ -42,31 +42,46 @@ public class OperationsMutations
 
     /// <summary>
     /// Queues an immediate run of the manifest with this external id, outside its normal schedule,
-    /// which continues unaffected. An unknown external id fails the mutation with an error.
+    /// which continues unaffected. An unknown external id fails the mutation with an error. When the
+    /// manifest already has a queued retry, the trigger releases it instead; with
+    /// <c>askAfresh: true</c> that retry no longer replays the failed run's decisions and asks its
+    /// deciders again.
     /// </summary>
     public async Task<OperationResponse> TriggerManifest(
         string externalId,
         [Service] ITraxScheduler scheduler,
-        CancellationToken ct
+        CancellationToken ct,
+        bool askAfresh = false
     )
     {
-        await scheduler.TriggerAsync(externalId, ct);
+        // The overload is called only when asked, so a host whose scheduler predates it keeps the
+        // default path.
+        if (askAfresh)
+            await scheduler.TriggerAsync(externalId, askAfresh: true, ct);
+        else
+            await scheduler.TriggerAsync(externalId, ct);
         return new OperationResponse(true, Message: "Manifest triggered");
     }
 
     /// <summary>
     /// Queues a run of the manifest with this external id that becomes eligible for dispatch once
     /// <c>delay</c> has passed (an ISO-8601 duration such as <c>PT5M</c>). The normal schedule
-    /// continues unaffected. An unknown external id fails the mutation with an error.
+    /// continues unaffected. An unknown external id fails the mutation with an error. With
+    /// <c>askAfresh: true</c> a queued retry the trigger releases asks its deciders again instead of
+    /// replaying the failed run's decisions.
     /// </summary>
     public async Task<OperationResponse> TriggerManifestDelayed(
         string externalId,
         TimeSpan delay,
         [Service] ITraxScheduler scheduler,
-        CancellationToken ct
+        CancellationToken ct,
+        bool askAfresh = false
     )
     {
-        await scheduler.TriggerAsync(externalId, delay, ct);
+        if (askAfresh)
+            await scheduler.TriggerAsync(externalId, delay, askAfresh: true, ct);
+        else
+            await scheduler.TriggerAsync(externalId, delay, ct);
         return new OperationResponse(true, Message: $"Manifest triggered with {delay} delay");
     }
 
@@ -197,6 +212,23 @@ public class OperationsMutations
         [Service] IOperationsService operationsService,
         CancellationToken ct
     ) => ToResponse(await operationsService.SetManifestsEnabledAsync(ids, enabled, ct));
+
+    /// <summary>
+    /// Sets whether retries of the listed manifests replay the decisions of the run they retry
+    /// (<c>replayDecisionsOnRetry</c>). Only manifests whose flag differs are written; <c>count</c>
+    /// is the number changed, zero included. Turning it off also clears the replay link of each
+    /// manifest's queued entry, so a retry waiting out its backoff asks afresh. An empty list, or
+    /// more than 1000 ids, returns <c>success: false</c> and changes nothing.
+    /// </summary>
+    public async Task<OperationResponse> SetManifestsReplayDecisionsOnRetry(
+        long[] ids,
+        bool replay,
+        [Service] IOperationsService operationsService,
+        CancellationToken ct
+    ) =>
+        ToResponse(
+            await operationsService.SetManifestsReplayDecisionsOnRetryAsync(ids, replay, ct)
+        );
 
     /// <summary>
     /// Re-queues an execution: queues a fresh run of the same train with the input the execution

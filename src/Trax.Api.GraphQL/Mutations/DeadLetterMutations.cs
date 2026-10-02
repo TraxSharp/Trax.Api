@@ -11,12 +11,20 @@ public class DeadLetterMutations
     /// Queues a new run for one dead letter's manifest and marks the dead letter retried. Only a dead
     /// letter awaiting intervention can be requeued, and a manifest holds one queued entry at a time:
     /// if it already has one, the result reports failure and the dead letter stays awaiting intervention.
+    /// The new run replays the decisions of the manifest's failed run when that is sound, as a retry
+    /// does; <c>askAfresh: true</c> makes it ask its deciders again.
     /// </summary>
     public async Task<DeadLetterOperationResult> RequeueDeadLetter(
         long id,
         [Service] ITraxScheduler scheduler,
-        CancellationToken ct
-    ) => await scheduler.RequeueDeadLetterAsync(id, ct);
+        CancellationToken ct,
+        bool askAfresh = false
+    ) =>
+        // The overload is called only when asked, so a host whose scheduler predates it keeps the
+        // default path.
+        askAfresh
+            ? await scheduler.RequeueDeadLetterAsync(id, askAfresh: true, ct)
+            : await scheduler.RequeueDeadLetterAsync(id, ct);
 
     /// <summary>
     /// Marks one dead letter acknowledged without running it again, recording <c>note</c> as the
@@ -33,12 +41,17 @@ public class DeadLetterMutations
     /// Requeues the listed dead letters. At most one work queue entry is created per manifest: dead
     /// letters that share a manifest are folded into one entry and all resolved, and a dead letter
     /// whose manifest already has a queued entry is skipped and left awaiting intervention.
+    /// <c>askAfresh: true</c> makes every new run ask its deciders again rather than replay.
     /// </summary>
     public async Task<BatchDeadLetterResult> RequeueDeadLetters(
         long[] ids,
         [Service] ITraxScheduler scheduler,
-        CancellationToken ct
-    ) => await scheduler.RequeueDeadLettersAsync(ids, ct);
+        CancellationToken ct,
+        bool askAfresh = false
+    ) =>
+        askAfresh
+            ? await scheduler.RequeueDeadLettersAsync(ids, askAfresh: true, ct)
+            : await scheduler.RequeueDeadLettersAsync(ids, ct);
 
     /// <summary>
     /// Marks the listed dead letters acknowledged without running them again, recording <c>note</c>
@@ -53,12 +66,17 @@ public class DeadLetterMutations
 
     /// <summary>
     /// Requeues every dead letter awaiting intervention, creating at most one work queue entry per
-    /// manifest as <c>requeueDeadLetters</c> does.
+    /// manifest as <c>requeueDeadLetters</c> does. <c>askAfresh: true</c> makes every new run ask
+    /// its deciders again rather than replay.
     /// </summary>
     public async Task<BatchDeadLetterResult> RequeueAllDeadLetters(
         [Service] ITraxScheduler scheduler,
-        CancellationToken ct
-    ) => await scheduler.RequeueAllDeadLettersAsync(ct);
+        CancellationToken ct,
+        bool askAfresh = false
+    ) =>
+        askAfresh
+            ? await scheduler.RequeueAllDeadLettersAsync(askAfresh: true, ct)
+            : await scheduler.RequeueAllDeadLettersAsync(ct);
 
     /// <summary>
     /// Marks every dead letter awaiting intervention acknowledged, recording <c>note</c> on each.

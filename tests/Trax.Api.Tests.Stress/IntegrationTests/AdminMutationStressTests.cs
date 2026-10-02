@@ -523,6 +523,31 @@ public class AdminMutationStressTests : StressTestSetup
     }
 
     [Test]
+    public async Task SetManifestsReplayDecisionsOnRetry_FullBatch_WithinBudget()
+    {
+        var ids = Batch(Profile.Manifests / 2 - OperationsService.MaxBatchSize / 2);
+        await MeasureWriteAsync(
+            "operations.setManifestsReplayDecisionsOnRetry (1000 ids)",
+            ListBudget,
+            () =>
+                ExecSqlAsync(
+                    $"UPDATE trax.manifest SET replay_decisions_on_retry = true WHERE id IN ({InList(ids)})"
+                ),
+            async (sp, ct) =>
+            {
+                // Off also clears the queued entries' replay links, the costlier direction.
+                var response = await new OperationsMutations().SetManifestsReplayDecisionsOnRetry(
+                    ids,
+                    false,
+                    Operations(sp),
+                    ct
+                );
+                response.Count.Should().Be(ids.Length, response.Message);
+            }
+        );
+    }
+
+    [Test]
     public async Task SetManifestGroupsEnabled_EveryGroup_WithinBudget()
     {
         var ids = Enumerable
