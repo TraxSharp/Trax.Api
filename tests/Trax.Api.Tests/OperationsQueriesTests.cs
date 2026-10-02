@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -1166,15 +1167,21 @@ public class OperationsQueriesTests
         }
     }
 
-    private async Task<long> SeedRequeueSourceAsync(string? input, bool recordDecision = false)
+    private async Task<long> SeedRequeueSourceAsync(
+        string? input,
+        bool recordDecision = false,
+        string? trainName = null,
+        long? replayDecisionsOf = null
+    )
     {
         await using var db = await _factory.CreateDbContextAsync(default);
         var meta = Metadata.Create(
             new CreateMetadata
             {
-                Name = typeof(IRequeueProbeTrain).FullName!,
+                Name = trainName ?? typeof(IRequeueProbeTrain).FullName!,
                 ExternalId = Guid.NewGuid().ToString("N"),
                 Input = null,
+                ReplayDecisionsOf = replayDecisionsOf,
             }
         );
         meta.Input = input;
@@ -1189,9 +1196,11 @@ public class OperationsQueriesTests
                     MetadataId = meta.Id,
                     QuestionKey = "Route",
                     Occurrence = 0,
+                    Fingerprint = new string('0', 64),
                     Kind = "choice",
                     Question = "{}",
                     Answer = "\"Express\"",
+                    Routes = """[{"track": "Express", "fallback_reason": null}]""",
                     DecidedAt = DateTime.UtcNow,
                 }
             );
@@ -1318,6 +1327,65 @@ public class OperationsQueriesTests
                 Arg.Any<QueueTrainOptions>(),
                 Arg.Any<CancellationToken>()
             );
+    }
+
+    [Test]
+    public async Task RequeueExecution_ARequeueThatRecordedNothing_IsQueuedToReplayWhatItReplayed()
+    {
+        var first = await SeedRequeueSourceAsync("{\"v\": 1}", recordDecision: true);
+        var second = await SeedRequeueSourceAsync("{\"v\": 1}", replayDecisionsOf: first);
+        var ops = RequeueOperations(out var execution);
+
+        var resp = await new OperationsMutations().RequeueExecution(second, ops, default);
+
+        resp.Success.Should().BeTrue(resp.Message);
+        await execution
+            .Received(1)
+            .QueueAsync(
+                typeof(IRequeueProbeTrain).FullName!,
+                "{\"v\": 1}",
+                Arg.Is<QueueTrainOptions>(o => o!.ReplayDecisionsOf == second),
+                Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Test]
+    public async Task RequeueExecution_ARunWhoseTrainIsNoLongerRegistered_SaysSo()
+    {
+        var id = await SeedRequeueSourceAsync("{\"v\": 1}", trainName: "Some.Retired.ITrain");
+        var ops = RequeueOperations(out var execution);
+
+        var resp = await new OperationsMutations().RequeueExecution(id, ops, default);
+
+        resp.Success.Should().BeFalse();
+        resp.Message.Should()
+            .Be(
+                $"Train Some.Retired.ITrain is no longer registered, so execution {id} cannot be "
+                    + "re-queued."
+            );
+        execution.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task RequeueExecution_ASavedInputThatNoLongerReads_IsRefusedAsTheRunsInput()
+    {
+        var id = await SeedRequeueSourceAsync("{\"v\": 1}");
+        var ops = RequeueOperations(out var execution);
+        execution
+            .QueueAsync(
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<int>(),
+                Arg.Any<DateTime?>(),
+                Arg.Any<CancellationToken>()
+            )
+            .Returns<QueueTrainResult>(_ => throw new JsonException("v is not a member"));
+
+        var resp = await new OperationsMutations().RequeueExecution(id, ops, default);
+
+        resp.Success.Should().BeFalse();
+        resp.Message.Should()
+            .Be($"The saved input of run {id} no longer reads as System.Object: v is not a member");
     }
 
     [Test]
