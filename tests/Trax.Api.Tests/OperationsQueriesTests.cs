@@ -1301,6 +1301,57 @@ public class OperationsQueriesTests
     }
 
     [Test]
+    public async Task RequeueExecution_AskedAfresh_IsQueuedWithoutReplayingTheDecisions()
+    {
+        var id = await SeedRequeueSourceAsync("{\"v\": 1}", recordDecision: true);
+        var ops = RequeueOperations(out var execution);
+
+        var resp = await new OperationsMutations().RequeueExecution(
+            id,
+            ops,
+            default,
+            askAfresh: true
+        );
+
+        resp.Success.Should().BeTrue(resp.Message);
+        resp.Count.Should().Be(1);
+        await execution
+            .DidNotReceive()
+            .QueueAsync(
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Is<QueueTrainOptions>(o => o != null && o.ReplayDecisionsOf != null),
+                Arg.Any<CancellationToken>()
+            );
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task RequeueExecution_PassesAskAfreshToTheSharedRequeue(bool askAfresh)
+    {
+        var ops = Substitute.For<IOperationsService>();
+        ops.RequeueExecutionAsync(42, Arg.Any<CancellationToken>())
+            .Returns(new OperationResult(true, Count: 1));
+        ops.RequeueExecutionAsync(42, Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new OperationResult(true, Count: 1));
+
+        await new OperationsMutations().RequeueExecution(42, ops, default, askAfresh);
+
+        if (askAfresh)
+            await ops.Received(1).RequeueExecutionAsync(42, true, Arg.Any<CancellationToken>());
+        else
+        {
+            await ops.Received(1).RequeueExecutionAsync(42, Arg.Any<CancellationToken>());
+            await ops.DidNotReceive()
+                .RequeueExecutionAsync(
+                    Arg.Any<long>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>()
+                );
+        }
+    }
+
+    [Test]
     public async Task RequeueExecution_ARunThatRecordedNoDecisions_IsQueuedAsAnOrdinaryEnqueue()
     {
         var id = await SeedRequeueSourceAsync("{\"v\": 1}");

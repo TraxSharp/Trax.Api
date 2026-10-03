@@ -46,7 +46,8 @@ namespace Trax.Api.Tests;
 /// through the same scheduler and operations-service calls the dashboard makes. Against Postgres
 /// with the real scheduler: a requeue or a released retry keeps its replay link unless asked
 /// afresh. Over HTTP: the new argument and mutation answer to the operations gate exactly as the
-/// existing mutations do.
+/// existing mutations do. <c>requeueExecution</c> takes <c>askAfresh</c> too, through
+/// <c>IOperationsService.RequeueExecutionAsync</c>, the dashboard's Re-queue path.
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -166,6 +167,59 @@ public class AskAfreshMutationsTests
         response.Success.Should().BeTrue();
         var queued = await QueuedEntryAsync(manifest.Id);
         queued.ReplayDecisionsOf.Should().Be(askAfresh ? null : failedRun);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Trigger_AskedAfreshAfterTheRetryWasClaimed_SaysItStillReplays(bool delayed)
+    {
+        var scheduler = Substitute.For<ITraxScheduler>();
+        var claimed = new ManifestTriggerResult(
+            WorkQueueId: 9,
+            Created: false,
+            ScheduledAt: null,
+            AlreadyDispatched: true,
+            ReplayDecisionsOf: 77
+        );
+        scheduler.TriggerAsync("m", true, Arg.Any<CancellationToken>()).Returns(claimed);
+        scheduler
+            .TriggerAsync("m", Arg.Any<TimeSpan>(), true, Arg.Any<CancellationToken>())
+            .Returns(claimed);
+        var mutations = new OperationsMutations();
+
+        var response = delayed
+            ? await mutations.TriggerManifestDelayed(
+                "m",
+                TimeSpan.FromMinutes(1),
+                scheduler,
+                default,
+                askAfresh: true
+            )
+            : await mutations.TriggerManifest("m", scheduler, default, askAfresh: true);
+
+        response.Success.Should().BeTrue();
+        response
+            .Message.Should()
+            .Contain("already claimed")
+            .And.Contain("77", "the operator is told which run's decisions it replays");
+    }
+
+    [Test]
+    public async Task Trigger_AskedAfreshBeforeTheRetryWasClaimed_SaysOnlyTriggered()
+    {
+        var scheduler = Substitute.For<ITraxScheduler>();
+        scheduler
+            .TriggerAsync("m", true, Arg.Any<CancellationToken>())
+            .Returns(new ManifestTriggerResult(9, false, null, false, null));
+
+        var response = await new OperationsMutations().TriggerManifest(
+            "m",
+            scheduler,
+            default,
+            askAfresh: true
+        );
+
+        response.Message.Should().Be("Manifest triggered");
     }
 
     [Test]
@@ -296,6 +350,7 @@ public class AskAfreshMutationsTests
         """mutation { operations { deadLetters { requeueDeadLetters(ids: [1], askAfresh: true) { count } } } }""",
         """mutation { operations { deadLetters { requeueAllDeadLetters(askAfresh: true) { count } } } }""",
         """mutation { operations { setManifestsReplayDecisionsOnRetry(ids: [1], replay: false) { success count } } }""",
+        """mutation { operations { requeueExecution(id: 1, askAfresh: true) { success } } }""",
     ];
 
     [Test]
@@ -357,6 +412,7 @@ public class AskAfreshMutationsTests
                 false,
                 Arg.Any<CancellationToken>()
             );
+        await operations.Received(1).RequeueExecutionAsync(1, true, Arg.Any<CancellationToken>());
         await host.StopAsync();
     }
 
@@ -380,7 +436,21 @@ public class AskAfreshMutationsTests
         scheduler
             .RequeueAllDeadLettersAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(new BatchDeadLetterResult(1, "ok"));
+        scheduler
+            .TriggerAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new ManifestTriggerResult(1, true, null, false, null));
+        scheduler
+            .TriggerAsync(
+                Arg.Any<string>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>()
+            )
+            .Returns(new ManifestTriggerResult(1, true, null, false, null));
         var operations = Substitute.For<IOperationsService>();
+        operations
+            .RequeueExecutionAsync(Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new OperationResult(true, Count: 1));
         operations
             .SetManifestsReplayDecisionsOnRetryAsync(
                 Arg.Any<IReadOnlyCollection<long>>(),

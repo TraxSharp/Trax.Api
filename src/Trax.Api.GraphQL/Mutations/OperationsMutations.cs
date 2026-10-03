@@ -45,7 +45,9 @@ public class OperationsMutations
     /// which continues unaffected. An unknown external id fails the mutation with an error. When the
     /// manifest already has a queued retry, the trigger releases it instead; with
     /// <c>askAfresh: true</c> that retry no longer replays the failed run's decisions and asks its
-    /// deciders again.
+    /// deciders again. If the dispatcher had already claimed the retry, it is too late to change:
+    /// the mutation still succeeds, and its message says the run replays the failed run's
+    /// decisions.
     /// </summary>
     public async Task<OperationResponse> TriggerManifest(
         string externalId,
@@ -57,9 +59,11 @@ public class OperationsMutations
         // The overload is called only when asked, so a host whose scheduler predates it keeps the
         // default path.
         if (askAfresh)
-            await scheduler.TriggerAsync(externalId, askAfresh: true, ct);
-        else
-            await scheduler.TriggerAsync(externalId, ct);
+            return Triggered(
+                await scheduler.TriggerAsync(externalId, askAfresh: true, ct),
+                "Manifest triggered"
+            );
+        await scheduler.TriggerAsync(externalId, ct);
         return new OperationResponse(true, Message: "Manifest triggered");
     }
 
@@ -68,7 +72,8 @@ public class OperationsMutations
     /// <c>delay</c> has passed (an ISO-8601 duration such as <c>PT5M</c>). The normal schedule
     /// continues unaffected. An unknown external id fails the mutation with an error. With
     /// <c>askAfresh: true</c> a queued retry the trigger releases asks its deciders again instead of
-    /// replaying the failed run's decisions.
+    /// replaying the failed run's decisions; as with <c>triggerManifest</c>, the message says so when
+    /// the dispatcher had already claimed it and it still replays.
     /// </summary>
     public async Task<OperationResponse> TriggerManifestDelayed(
         string externalId,
@@ -79,11 +84,27 @@ public class OperationsMutations
     )
     {
         if (askAfresh)
-            await scheduler.TriggerAsync(externalId, delay, askAfresh: true, ct);
-        else
-            await scheduler.TriggerAsync(externalId, delay, ct);
+            return Triggered(
+                await scheduler.TriggerAsync(externalId, delay, askAfresh: true, ct),
+                $"Manifest triggered with {delay} delay"
+            );
+        await scheduler.TriggerAsync(externalId, delay, ct);
         return new OperationResponse(true, Message: $"Manifest triggered with {delay} delay");
     }
+
+    /// <summary>
+    /// The response to a trigger asked afresh: still a success when the dispatcher had already
+    /// claimed the retry, but saying that the run replays the failed run's decisions.
+    /// </summary>
+    internal static OperationResponse Triggered(ManifestTriggerResult result, string triggered) =>
+        result.ReplayDecisionsOf is { } replayed
+            ? new OperationResponse(
+                true,
+                Message: $"{triggered}, but the dispatcher had already claimed its queued retry, "
+                    + $"so that run replays the decisions of execution {replayed} rather than "
+                    + "asking its deciders afresh"
+            )
+            : new OperationResponse(true, Message: triggered);
 
     /// <summary>
     /// Disables the manifest with this external id so the scheduler stops running it. The manifest
@@ -232,18 +253,26 @@ public class OperationsMutations
 
     /// <summary>
     /// Re-queues an execution: queues a fresh run of the same train with the input the execution
-    /// recorded, through <see cref="IOperationsService.RequeueExecutionAsync"/>, the same call the
+    /// recorded, through <see cref="IOperationsService.RequeueExecutionAsync(long, bool, CancellationToken)"/>, the same call the
     /// dashboard's Re-queue button makes. Fails without queueing when the execution does not exist,
     /// recorded no input, recorded a placeholder in place of its input (too large, unserializable
     /// or disposed), or recorded an input with <c>[TraxSensitive]</c> members masked. When the
     /// execution recorded decisions, the new run replays them, so it takes the tracks the
-    /// execution took.
+    /// execution took; with <c>askAfresh: true</c> it asks its deciders again instead. When a
+    /// queued entry or a run already replays that execution, the new run is queued afresh either
+    /// way, and the message says so.
     /// </summary>
     public async Task<OperationResponse> RequeueExecution(
         long id,
         [Service] IOperationsService operationsService,
-        CancellationToken ct
-    ) => ToResponse(await operationsService.RequeueExecutionAsync(id, ct));
+        CancellationToken ct,
+        bool askAfresh = false
+    ) =>
+        ToResponse(
+            askAfresh
+                ? await operationsService.RequeueExecutionAsync(id, askAfresh: true, ct)
+                : await operationsService.RequeueExecutionAsync(id, ct)
+        );
 
     /// <summary>
     /// Patches mutable settings on a single manifest (enabled, retries, priority, timeout,
