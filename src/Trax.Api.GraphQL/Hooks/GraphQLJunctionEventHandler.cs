@@ -14,8 +14,9 @@ namespace Trax.Api.GraphQL.Hooks;
 /// A step is forwarded exactly when the train's own events are (<see cref="LifecycleStreamRule"/>):
 /// for a <c>[TraxBroadcast]</c> train, or for every train on a host exposing the operations surface.
 /// Which subscribers receive it is decided per subscriber when it is read, by the same visibility as
-/// the train's events. It publishes to the in-memory topic and returns, so it adds nothing slow to
-/// the run's path.
+/// the train's events. It publishes to the in-memory topic and returns, and never waits longer than
+/// <see cref="PublishBound"/>: a step that cannot be published in time is dropped and reported to
+/// subscribers as a gap, rather than holding up the run.
 /// </remarks>
 internal sealed class GraphQLJunctionEventHandler(
     ITopicEventSender eventSender,
@@ -23,7 +24,16 @@ internal sealed class GraphQLJunctionEventHandler(
     ILogger<GraphQLJunctionEventHandler>? logger = null
 ) : IJunctionEventHandler
 {
+    /// <summary>How long a step may wait to be published before it is dropped as a loss.</summary>
+    internal static readonly TimeSpan DefaultPublishBound = TimeSpan.FromMilliseconds(250);
+
     private readonly LifecycleEventPublisher _publisher = LifecycleEventPublisher.For(eventSender);
+
+    /// <summary>
+    /// The most a step's publish holds up the run. Past it the step is dropped and subscribers see
+    /// the loss as a skip in <c>sequence</c>.
+    /// </summary>
+    internal TimeSpan PublishBound { get; init; } = DefaultPublishBound;
 
     /// <inheritdoc />
     public async Task HandleAsync(TrainLifecycleEventMessage message, CancellationToken ct)
@@ -45,7 +55,12 @@ internal sealed class GraphQLJunctionEventHandler(
         }
 
         await _publisher
-            .PublishAsync(nameof(LifecycleSubscriptions.OnJunctionEvent), junctionEvent, ct)
+            .PublishAsync(
+                nameof(LifecycleSubscriptions.OnJunctionEvent),
+                junctionEvent,
+                PublishBound,
+                ct
+            )
             .ConfigureAwait(false);
     }
 }

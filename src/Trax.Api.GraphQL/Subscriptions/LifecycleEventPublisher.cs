@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HotChocolate.Subscriptions;
 using Trax.Api.DTOs;
@@ -59,27 +60,79 @@ internal sealed class LifecycleEventPublisher
 
     /// <summary>
     /// Numbers <paramref name="junctionEvent"/> as the next event on <paramref name="topic"/> and
-    /// sends it, exactly as a train lifecycle event is. A send that throws uses no number.
+    /// sends it, waiting at most <paramref name="bound"/> in all, because it is called on the run's
+    /// path and the next junction waits for it.
     /// </summary>
+    /// <remarks>
+    /// An event that cannot take its turn within the bound is dropped, and the number it would have
+    /// had is skipped, so every subscription reports the loss through its <c>sequence</c> as it
+    /// reports one its own buffer caused. A send that is still running when the bound expires is
+    /// left to finish on its own and keeps its number: if it arrives the subscription sees it, and
+    /// if it never does the next event shows the gap. A send that throws uses no number.
+    /// </remarks>
     public ValueTask PublishAsync(
         string topic,
         JunctionEvent junctionEvent,
+        TimeSpan bound,
         CancellationToken ct
-    ) => PublishAsync(topic, next => junctionEvent with { PublishSequence = next }, ct);
+    ) => PublishAsync(topic, next => junctionEvent with { PublishSequence = next }, ct, bound);
 
     private async ValueTask PublishAsync<T>(
         string topic,
         Func<long, T> numbered,
-        CancellationToken ct
+        CancellationToken ct,
+        TimeSpan? bound = null
     )
     {
         var sequence = _topics.GetOrAdd(topic, _ => new TopicSequence());
-        await sequence.Gate.WaitAsync(ct).ConfigureAwait(false);
+        var started = Stopwatch.GetTimestamp();
+
+        if (bound is { } limit)
+        {
+            if (!await sequence.Gate.WaitAsync(limit, ct).ConfigureAwait(false))
+            {
+                Interlocked.Increment(ref sequence.Dropped);
+                return;
+            }
+        }
+        else
+            await sequence.Gate.WaitAsync(ct).ConfigureAwait(false);
+
+        // Numbers given up by dropped events are used here, so the jump past them is a gap.
+        var skipped = Interlocked.Exchange(ref sequence.Dropped, 0);
         try
         {
-            var next = sequence.Last + 1;
-            await _sender.SendAsync(topic, numbered(next), ct).ConfigureAwait(false);
+            var next = sequence.Last + skipped + 1;
+            var send = _sender.SendAsync(topic, numbered(next), ct).AsTask();
+            if (bound is { } sendLimit)
+            {
+                var remaining = sendLimit - Stopwatch.GetElapsedTime(started);
+                try
+                {
+                    await send.WaitAsync(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // Left running: its number is taken whether or not it arrives.
+                    sequence.Last = next;
+                    _ = send.ContinueWith(
+                        t => _ = t.Exception,
+                        TaskContinuationOptions.OnlyOnFaulted
+                    );
+                    return;
+                }
+            }
+            else
+                await send.ConfigureAwait(false);
+
             sequence.Last = next;
+        }
+        catch
+        {
+            // A failed send uses no number; the skipped ones are still owed to the next event.
+            Interlocked.Add(ref sequence.Dropped, skipped);
+            throw;
         }
         finally
         {
@@ -98,7 +151,8 @@ internal sealed class LifecycleEventPublisher
         await sequence.Gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            return sequence.Last;
+            // Numbers dropped before the subscription existed are not owed to it.
+            return sequence.Last + Interlocked.Read(ref sequence.Dropped);
         }
         finally
         {
@@ -110,5 +164,8 @@ internal sealed class LifecycleEventPublisher
     {
         public readonly SemaphoreSlim Gate = new(1, 1);
         public long Last;
+
+        /// <summary>Numbers given up by events dropped since the last send, owed as a gap.</summary>
+        public long Dropped;
     }
 }

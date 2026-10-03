@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using Trax.Api.Auth.ApiKey;
+using Trax.Api.DTOs;
 using Trax.Api.Extensions;
 using Trax.Api.GraphQL.Extensions;
 using Trax.Core.Decisions;
@@ -60,7 +61,8 @@ public class JunctionEventsE2ETests
 
     private const string StepFields =
         "position kind name state startedAt endedAt durationMs failureClass failureException "
-        + "questionKey answer confidence replayed decider answerWithheld attempt";
+        + "questionKey answer confidence replayed decider answerWithheld attempt nameWithheld "
+        + "trackPosition";
 
     private static string Subscription(long metadataId) =>
         $"subscription {{ onJunctionEvent(metadataId: {metadataId}) {{ sequence metadataId trainName eventType junction {{ {StepFields} }} }} }}";
@@ -154,8 +156,8 @@ public class JunctionEventsE2ETests
                 ("ROUTED", "MarkerLane"),
                 ("DECIDED", "MarkerTier"),
                 ("ROUTED", "MarkerTier"),
-                ("JUNCTION_STARTED", nameof(FinishOrExplode)),
-                ("JUNCTION_FAILED", nameof(FinishOrExplode))
+                ("JUNCTION_STARTED", Withheld),
+                ("JUNCTION_FAILED", Withheld)
             );
 
         var lane = steps.First(s => s.EventType == "DECIDED" && s.Name == "MarkerLane");
@@ -187,6 +189,16 @@ public class JunctionEventsE2ETests
             .Received.Should()
             .NotContain(Marker, "a step carries no input, output or message, per " + Adr);
         admin.Received.Should().NotContain("\"Red\"", "the withheld answer appears nowhere");
+        admin
+            .Received.Should()
+            .NotContain(nameof(RevealSecret), "a junction on a sensitive track is named to nobody")
+            .And.NotContain(nameof(FinishOrExplode));
+        steps
+            .Should()
+            .Contain(
+                s => s.Name == nameof(PassLane),
+                "the operations view sees the names on a track whose answer it may see"
+            );
     }
 
     [Test]
@@ -248,6 +260,20 @@ public class JunctionEventsE2ETests
                 && s.Fields.GetProperty("failureException").ValueKind == JsonValueKind.Null
             );
         player.Received.Should().NotContain(Marker);
+        player
+            .Received.Should()
+            .NotContain(
+                nameof(PassLane),
+                "a junction on a track gives the answer away to a subscriber not shown it, per "
+                    + Adr
+            );
+        steps
+            .Where(s => s.Fields.GetProperty("trackPosition").ValueKind == JsonValueKind.Number)
+            .Should()
+            .NotBeEmpty()
+            .And.OnlyContain(s =>
+                s.Name == Withheld && s.Fields.GetProperty("nameWithheld").GetBoolean()
+            );
         player.Received.Should().NotContain("\"Red\"");
     }
 
@@ -313,9 +339,11 @@ public class JunctionEventsE2ETests
                 ("JUNCTION", nameof(PassLane)),
                 ("CHOICE", "MarkerTier"),
                 ("ROUTE", "MarkerTier"),
-                ("JUNCTION", nameof(RevealSecret)),
-                ("JUNCTION", nameof(FinishOrExplode))
+                ("JUNCTION", Withheld),
+                ("JUNCTION", Withheld)
             );
+        timeline[^1].GetProperty("nameWithheld").GetBoolean().Should().BeTrue();
+        timeline[^1].GetProperty("trackPosition").GetInt32().Should().Be(5);
 
         foreach (var tier in timeline.Where(s => s.GetProperty("name").GetString() == "MarkerTier"))
         {
@@ -356,6 +384,23 @@ public class JunctionEventsE2ETests
             .Equal(3, 4, 5);
     }
 
+    [TestCase(0L)]
+    [TestCase(-5L)]
+    public async Task Timeline_OfAnIdThatIsNotPositive_IsRefused(long metadataId)
+    {
+        using var doc = await PostAsync(TimelineQuery(metadataId), AdminKey);
+
+        AuthOperations
+            .HasErrorCode(doc, Trax.Api.GraphQL.Validation.RunIdArgument.ErrorCode)
+            .Should()
+            .BeTrue(
+                "an id of 0 would read every unsaved run at once, per "
+                    + Adr
+                    + ": "
+                    + doc.RootElement.GetRawText()
+            );
+    }
+
     [Test]
     public async Task Timeline_OverGet_IsRefusedLikeEveryOtherQuery()
     {
@@ -377,8 +422,11 @@ public class JunctionEventsE2ETests
 
     #region Helpers
 
+    private const string Withheld = JunctionStep.WithheldName;
+
+    /// <summary>The run's last junction (position 7) ending; its name is withheld on every view.</summary>
     private static bool IsLastStep(Step step) =>
-        step.Name == nameof(FinishOrExplode)
+        step.Fields.GetProperty("position").GetInt32() == 7
         && step.EventType is "JUNCTION_FAILED" or "JUNCTION_COMPLETED";
 
     private static bool Denied(JsonDocument doc) =>
@@ -406,7 +454,7 @@ public class JunctionEventsE2ETests
 
             if (
                 steps.Count > 0
-                && steps[^1].GetProperty("name").GetString() == nameof(FinishOrExplode)
+                && steps[^1].GetProperty("position").GetInt32() == 7
                 && steps[^1].GetProperty("state").GetString() != "IN_PROGRESS"
             )
                 return steps;

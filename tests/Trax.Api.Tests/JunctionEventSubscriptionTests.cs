@@ -9,10 +9,12 @@ using Trax.Api.DTOs;
 using Trax.Api.GraphQL.Configuration.TraxGraphQLBuilder;
 using Trax.Api.GraphQL.Hooks;
 using Trax.Api.GraphQL.Subscriptions;
+using Trax.Api.GraphQL.Validation;
 using Trax.Core.Exceptions;
 using Trax.Effect.Attributes;
 using Trax.Effect.Configuration.TraxBuilder;
 using Trax.Effect.Enums;
+using Trax.Effect.Models.JunctionRun;
 using Trax.Effect.Services.EffectRegistry;
 using Trax.Effect.Services.TrainEventBroadcaster;
 using Trax.Mediator.Services.TrainDiscovery;
@@ -42,7 +44,7 @@ public class JunctionEventSubscriptionTests
         + metadataId
         + ") { sequence metadataId trainName eventType junction { position kind name state "
         + "questionKey answer confidence answerWithheld decider failureException failureClass "
-        + "attempt } } }";
+        + "attempt nameWithheld trackPosition } } }";
 
     public interface IAdminOnlyTrain;
 
@@ -116,6 +118,31 @@ public class JunctionEventSubscriptionTests
             .BeOfType<OperationResult>("a subscription without a run is a validation error")
             .Which.Errors.Should()
             .NotBeNullOrEmpty();
+    }
+
+    [TestCase(0L)]
+    [TestCase(-1L)]
+    public async Task MetadataId_ThatIsNotPositive_IsRefused(long metadataId)
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+
+        var result = await executor.ExecuteAsync(
+            OperationRequestBuilder
+                .New()
+                .SetDocument(OnJunctionEvent(metadataId))
+                .SetGlobalState("ClaimsPrincipal", User("Admin"))
+                .Build()
+        );
+
+        var refused = result
+            .Should()
+            .BeOfType<OperationResult>(
+                "an id of 0 would follow every unsaved run at once, so it is refused, per " + Adr
+            )
+            .Subject;
+        refused.Errors.Should().Contain(e => e.Code == RunIdArgument.ErrorCode);
     }
 
     #endregion
@@ -283,6 +310,115 @@ public class JunctionEventSubscriptionTests
         step["answerWithheld"].Should().Be(true);
         step["answer"].Should().BeNull("a [TraxSensitive] answer is withheld from everyone");
         step["confidence"].Should().BeNull();
+    }
+
+    [Test]
+    public async Task BroadcastView_WithholdsTheNamesOfJunctionsOnATrackByDefault()
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IPublicTrain>(anonymous: true));
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(OnTrack(typeof(IPublicTrain).FullName!, nameWithheld: false))
+        );
+
+        var step = Step(received);
+        step["name"]
+            .Should()
+            .Be(
+                JunctionStep.WithheldName,
+                "which junction ran on a track gives away the answer the subscriber is not shown, per "
+                    + Adr
+            );
+        step["nameWithheld"].Should().Be(true);
+        step["trackPosition"].Should().Be(2);
+    }
+
+    [Test]
+    public async Task BroadcastView_KeepsTheNameOfAJunctionBeforeAnyTrack()
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IPublicTrain>(anonymous: true));
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(Started(typeof(IPublicTrain).FullName!, Run, position: 0))
+        );
+
+        Step(received)["name"].Should().Be("Step");
+        Step(received)["nameWithheld"].Should().Be(false);
+    }
+
+    [Test]
+    public async Task BroadcastView_WithTheOptIn_ShowsTheNamesOfJunctionsOnATrack()
+    {
+        var executor = await BuildAsync(
+            g => g.AllowJunctionAnswersForBroadcastSubscribers(),
+            Broadcast<IPublicTrain>(anonymous: true)
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(OnTrack(typeof(IPublicTrain).FullName!, nameWithheld: false))
+        );
+
+        Step(received)["name"].Should().Be("ChargeCard");
+        Step(received)["nameWithheld"].Should().Be(false);
+    }
+
+    [Test]
+    public async Task NameTheRunWithheld_IsWithheldEvenInTheOperationsView()
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Admin"));
+
+        // The run writes the placeholder itself; a payload that still carries a name must not
+        // leak it.
+        var received = await sub.NextAsync(() => Handle(OnTrack("Some.Train", nameWithheld: true)));
+
+        Step(received)["name"].Should().Be(JunctionStep.WithheldName);
+        Step(received)["nameWithheld"].Should().Be(true);
+    }
+
+    [Test]
+    public void RecordedStep_NameTheRunWithheld_IsWithheld()
+    {
+        var step = JunctionStep.From(
+            new JunctionRun
+            {
+                Position = 3,
+                Kind = JunctionRunKind.Junction,
+                Name = "ChargeCard",
+                State = JunctionRunState.Completed,
+                StartedAt = DateTime.UtcNow,
+                NameWithheld = true,
+                TrackPosition = 2,
+            }
+        );
+
+        step.Name.Should()
+            .Be(JunctionStep.WithheldName, "the timeline honours it as the feed does");
+        step.NameWithheld.Should().BeTrue();
+        step.TrackPosition.Should().Be(2);
+    }
+
+    [Test]
+    public void LiveStep_NameTheRunWithheld_IsWithheld()
+    {
+        var step = JunctionStep.From(
+            new JunctionEventPayload(
+                3,
+                JunctionRunKind.Junction,
+                "ChargeCard",
+                JunctionRunState.InProgress,
+                DateTime.UtcNow,
+                NameWithheld: true,
+                TrackPosition: 2
+            )
+        );
+
+        step.Name.Should().Be(JunctionStep.WithheldName);
     }
 
     [Test]
@@ -475,6 +611,22 @@ public class JunctionEventSubscriptionTests
                 "Step",
                 JunctionRunState.InProgress,
                 DateTime.UtcNow
+            )
+        );
+
+    private static TrainLifecycleEventMessage OnTrack(string train, bool nameWithheld) =>
+        Message(
+            train,
+            Run,
+            TrainLifecycleEventMessage.JunctionStartedEventType,
+            new JunctionEventPayload(
+                Position: 3,
+                Kind: JunctionRunKind.Junction,
+                Name: "ChargeCard",
+                State: JunctionRunState.InProgress,
+                StartedAt: DateTime.UtcNow,
+                NameWithheld: nameWithheld,
+                TrackPosition: 2
             )
         );
 

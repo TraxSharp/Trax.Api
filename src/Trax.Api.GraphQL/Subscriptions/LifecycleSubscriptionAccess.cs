@@ -181,7 +181,8 @@ internal sealed record LifecycleVisibility(bool All, IReadOnlySet<string> Trains
     /// Outside the operations view the host detail a step carries is withheld, as it is from a
     /// train event: the decider's type name, and the exception type of a failure unless it is a
     /// <c>TrainException</c>, the one a train raises for its clients. The answer and confidence
-    /// are withheld too unless the host opted in (<see cref="JunctionAnswers"/>).
+    /// are withheld too unless the host opted in (<see cref="JunctionAnswers"/>), and so are the
+    /// names of junctions on a decision track, which would give the answer away.
     /// </remarks>
     public JunctionEvent? Present(JunctionEvent e)
     {
@@ -191,7 +192,10 @@ internal sealed record LifecycleVisibility(bool All, IReadOnlySet<string> Trains
         if (!Trains.Contains(e.TrainName))
             return null;
 
-        var step = e.Junction;
+        // Without the opt-in a broadcast subscriber is not shown answers, and which junctions ran
+        // on a decision track gives the answer away, so their names are withheld as well.
+        var step =
+            !JunctionAnswers && e.Junction.OnATrack ? e.Junction.WithNameWithheld() : e.Junction;
         return e with
         {
             Junction = step with

@@ -155,6 +155,7 @@ namespace Trax.Api.DTOs
     }
     public sealed class JunctionStep : System.IEquatable<Trax.Api.DTOs.JunctionStep>
     {
+        public const string WithheldName = "(withheld)";
         public JunctionStep(
                     int Position,
                     Trax.Effect.Enums.JunctionRunKind Kind,
@@ -171,7 +172,9 @@ namespace Trax.Api.DTOs
                     bool Replayed,
                     string? Decider,
                     bool AnswerWithheld,
-                    int? Attempt) { }
+                    int? Attempt,
+                    bool NameWithheld = false,
+                    int? TrackPosition = default) { }
         public string? Answer { get; init; }
         public bool AnswerWithheld { get; init; }
         public int? Attempt { get; init; }
@@ -183,11 +186,15 @@ namespace Trax.Api.DTOs
         public string? FailureException { get; init; }
         public Trax.Effect.Enums.JunctionRunKind Kind { get; init; }
         public string Name { get; init; }
+        public bool NameWithheld { get; init; }
+        public bool OnATrack { get; }
         public int Position { get; init; }
         public string? QuestionKey { get; init; }
         public bool Replayed { get; init; }
         public System.DateTime StartedAt { get; init; }
         public Trax.Effect.Enums.JunctionRunState State { get; init; }
+        public int? TrackPosition { get; init; }
+        public Trax.Api.DTOs.JunctionStep WithNameWithheld() { }
         public static Trax.Api.DTOs.JunctionStep From(Trax.Effect.Models.JunctionRun.JunctionRun row) { }
         public static Trax.Api.DTOs.JunctionStep From(Trax.Effect.Services.TrainEventBroadcaster.JunctionEventPayload payload) { }
     }

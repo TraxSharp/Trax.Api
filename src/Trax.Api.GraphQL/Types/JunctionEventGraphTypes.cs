@@ -60,5 +60,7 @@ internal sealed class JunctionStepGraphType : ObjectType<JunctionStep>
         descriptor.Field(s => s.Decider);
         descriptor.Field(s => s.AnswerWithheld);
         descriptor.Field(s => s.Attempt);
+        descriptor.Field(s => s.NameWithheld);
+        descriptor.Field(s => s.TrackPosition);
     }
 }

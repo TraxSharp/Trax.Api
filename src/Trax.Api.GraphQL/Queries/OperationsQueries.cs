@@ -838,6 +838,7 @@ public class OperationsQueries
         int take = OperationsPageBounds.MaxPageSize
     )
     {
+        RunIdArgument.Require(metadataId);
         take = OperationsPageBounds.Take(take);
 
         using var db = await dataContextFactory.CreateDbContextAsync(ct);

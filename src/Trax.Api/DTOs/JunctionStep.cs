@@ -31,6 +31,14 @@ namespace Trax.Api.DTOs;
 /// <param name="Decider">The full name of the decider's type. Live events only; the recorded timeline does not keep it.</param>
 /// <param name="AnswerWithheld">True when the question is about a <c>[TraxSensitive]</c> type, so its answer and confidence are absent.</param>
 /// <param name="Attempt">Which attempt of its manifest the run is, or <c>null</c> for a run with no manifest.</param>
+/// <param name="NameWithheld">
+/// True when <paramref name="Name"/> is <c>(withheld)</c>: the junction runs on a decision track,
+/// and its name would give away an answer this caller is not shown.
+/// </param>
+/// <param name="TrackPosition">
+/// For a junction, the position of the latest routing step before it, or <c>null</c> before any.
+/// Every junction after a route counts as on its track.
+/// </param>
 public sealed record JunctionStep(
     int Position,
     JunctionRunKind Kind,
@@ -47,16 +55,35 @@ public sealed record JunctionStep(
     bool Replayed,
     string? Decider,
     bool AnswerWithheld,
-    int? Attempt
+    int? Attempt,
+    bool NameWithheld = false,
+    int? TrackPosition = null
 )
 {
+    /// <summary>What a withheld name reads as.</summary>
+    public const string WithheldName = JunctionEventPayload.WithheldName;
+
+    /// <summary>This step with its name withheld, as a caller not shown the run's answers sees it.</summary>
+    public JunctionStep WithNameWithheld() =>
+        this with
+        {
+            Name = WithheldName,
+            NameWithheld = true,
+        };
+
+    /// <summary>Whether this is a junction that ran on a decision track.</summary>
+    public bool OnATrack => Kind == JunctionRunKind.Junction && TrackPosition is not null;
+
     /// <summary>The step a live junction event carries.</summary>
     /// <param name="payload">The event's junction payload.</param>
     public static JunctionStep From(JunctionEventPayload payload) =>
         new(
             payload.Position,
             payload.Kind,
-            payload.Name,
+            // A name the run withheld stays withheld whatever the payload holds.
+            payload.NameWithheld
+                ? WithheldName
+                : payload.Name,
             payload.State,
             payload.StartedAt,
             payload.EndedAt,
@@ -72,7 +99,9 @@ public sealed record JunctionStep(
             payload.Replayed,
             payload.Decider,
             payload.AnswerWithheld,
-            payload.Attempt
+            payload.Attempt,
+            payload.NameWithheld,
+            payload.TrackPosition
         );
 
     /// <summary>The step a recorded <c>trax.junction_run</c> row holds.</summary>
@@ -81,7 +110,7 @@ public sealed record JunctionStep(
         new(
             row.Position,
             row.Kind,
-            row.Name,
+            row.NameWithheld ? WithheldName : row.Name,
             row.State,
             row.StartedAt,
             row.EndedAt,
@@ -94,6 +123,8 @@ public sealed record JunctionStep(
             row.Replayed,
             Decider: null,
             row.AnswerWithheld,
-            row.Attempt
+            row.Attempt,
+            row.NameWithheld,
+            row.TrackPosition
         );
 }

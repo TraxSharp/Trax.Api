@@ -5,6 +5,7 @@ using HotChocolate.Execution;
 using HotChocolate.Subscriptions;
 using Trax.Api.DTOs;
 using Trax.Api.GraphQL.Authorization;
+using Trax.Api.GraphQL.Validation;
 
 namespace Trax.Api.GraphQL.Subscriptions;
 
@@ -130,6 +131,8 @@ public class LifecycleSubscriptions
         CancellationToken ct
     )
     {
+        RunIdArgument.Require(metadataId);
+
         // Who may see a run's steps is who may see its train's events: the same visibility,
         // decided once here, and the same refusal for a subscriber who could see nothing.
         var visibility = await access.LifecycleFor(user).ConfigureAwait(false);

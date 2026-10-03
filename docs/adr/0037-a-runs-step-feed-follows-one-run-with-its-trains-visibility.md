@@ -56,11 +56,27 @@ choice (`WithJunctionAnswers()`). The subscriber still sees that a question was 
 the step that followed. The operations view always sees answers, and an answer to a
 `[TraxSensitive]` question is never present for anyone, live or recorded, opt-in or not.
 
+**Names on a decision track are answers too.** Which junctions ran after a `Switch` tells which
+track it took, so withholding the answer alone hides nothing. Without the opt-in a broadcast
+subscriber sees a junction that has a `trackPosition` (one after any routing step) named
+`(withheld)`, with `nameWithheld` set. Trax.Core reports where a track starts but not where it
+rejoins the chain, so every junction after a route counts as on its track: fail-closed, at the cost
+of hiding the names of junctions that in fact run on every track. A name the run itself withheld,
+after a `[TraxSensitive]` route, stays withheld in every view, live and recorded, through
+`JunctionStep.From`, which the dashboard's timeline uses as well.
+
+**A run's id must be positive.** `onJunctionEvent` and `operations.junctionRuns` refuse
+`metadataId <= 0` with `TRAX_INVALID_ARGUMENT`. Zero is what an unsaved run carries, so following
+it would have been a combined feed of every unsaved run rather than one run.
+
 **A loss is reported whichever run it came from.** The topic carries every run's steps, so a gap
 in another run's steps shows as a skip in `sequence`, as a hidden train's lost event does in 0032.
 
-**A step is published on the run's path.** The handler only numbers the event and hands it to the
-in-memory topic, so it adds nothing slow to a junction.
+**A step is published on the run's path, and never holds it up past a bound.** The handler numbers
+the event and hands it to the in-memory topic, waiting at most 250ms in all for its turn and for
+the send. A step that cannot be published in time is dropped and its number skipped, so every
+subscriber sees the loss as a jump in `sequence`, exactly as it sees a loss its own buffer caused
+(0032). Blocking the run instead would let one slow subscriber stall every junction on the host.
 
 ## Exemplars
 
@@ -68,7 +84,11 @@ in-memory topic, so it adds nothing slow to a junction.
   a broadcast subscriber receives none of a train it cannot see and no host detail of one it can,
   only the subscribed run's steps arrive, a withheld answer stays null, a train that is not
   broadcast publishes nothing, `metadataId` is required, and a broadcast subscriber sees answers
-  only with the host's opt-in while the operations view always does.
+  only with the host's opt-in while the operations view always does, the names of junctions on a
+  track are withheld from it by default, a name the run withheld stays withheld in every view, and
+  an id that is not positive is refused.
+- `JunctionEventPublishBoundTests` pins the bound: a blocked send returns within it, and the
+  next step shows the dropped one as a gap.
 - `JunctionEventsE2ETests` holds it end to end with a real run over a real socket: a secret in the
   train's input, output and failure message reaches no subscriber and no timeline read, the
   sensitive answer is absent everywhere, and `operations.junctionRuns` is denied exactly when
@@ -80,5 +100,6 @@ before; that is the client's half.
 
 ## Changelog
 
+- **2026-10-02**: Track junction names withheld with answers; ids must be positive; publish bounded.
 - **2026-10-02**: Answers withheld from broadcast subscribers unless the host opts in.
 - **2026-10-02**: Recorded.
