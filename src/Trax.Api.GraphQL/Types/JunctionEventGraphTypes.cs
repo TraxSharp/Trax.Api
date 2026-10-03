@@ -26,8 +26,10 @@ internal sealed class JunctionEventGraphType : ObjectType<JunctionEvent>
             .Description(
                 "This event's position in the subscription: 1 for the first event and one more for "
                     + "each after it. A jump of more than one means events were lost on the way to "
-                    + "this subscriber; read operations.junctionRuns again. The live feed is lossy "
-                    + "under load."
+                    + "this subscriber. The feed is shared by every run on the host, so a gap can "
+                    + "come from another run's steps rather than this one's. In the operations view "
+                    + "read operations.junctionRuns again to recover; a broadcast subscriber cannot "
+                    + "read it, and has no way to recover a gap. The live feed is lossy under load."
             );
     }
 }

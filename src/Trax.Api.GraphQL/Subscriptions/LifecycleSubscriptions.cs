@@ -64,8 +64,10 @@ public class LifecycleSubscriptions
     /// Fires for each step of the run <paramref name="metadataId"/>: a junction starting, completing,
     /// failing or being cancelled, a question a routing step asked, and the track it took. Only a
     /// host that called <c>AddJunctionEvents()</c> publishes them, and you receive them exactly when
-    /// you would receive that run's train events. Read <c>operations.junctionRuns</c> for the steps
-    /// a run took before you subscribed.
+    /// you would receive that run's train events. In the operations view, read
+    /// <c>operations.junctionRuns</c> for the steps a run took before you subscribed or that a gap
+    /// in <c>sequence</c> lost. A broadcast subscriber cannot read it, so it has no way to recover a
+    /// lost step: it sees only the steps that reach it after it subscribed.
     /// </summary>
     /// <param name="metadataId">The run to follow (its execution id).</param>
     /// <param name="e">The event.</param>
