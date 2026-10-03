@@ -365,6 +365,118 @@ public class JunctionEventSubscriptionTests
         Step(received)["nameWithheld"].Should().Be(false);
     }
 
+    private static readonly object[] StepsOnATrack =
+    [
+        new object[] { JunctionRunKind.Choice, TrainLifecycleEventMessage.DecidedEventType },
+        new object[] { JunctionRunKind.Score, TrainLifecycleEventMessage.DecidedEventType },
+        new object[] { JunctionRunKind.YesNo, TrainLifecycleEventMessage.DecidedEventType },
+        new object[] { JunctionRunKind.Route, TrainLifecycleEventMessage.RoutedEventType },
+    ];
+
+    [TestCaseSource(nameof(StepsOnATrack))]
+    public async Task BroadcastView_WithholdsWhatNamesAQuestionOrRouteOnATrackByDefault(
+        JunctionRunKind kind,
+        string eventType
+    )
+    {
+        var executor = await BuildAsync(g => g, Broadcast<IPublicTrain>(anonymous: true));
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(QuestionOnTrack(typeof(IPublicTrain).FullName!, kind, eventType))
+        );
+
+        var step = Step(received);
+        step["name"]
+            .Should()
+            .Be(
+                JunctionStep.WithheldName,
+                "a question or route on a track is withheld as a junction on it is, per " + Adr
+            );
+        step["nameWithheld"].Should().Be(true);
+        step["questionKey"].Should().BeNull("the key names the question as the name does");
+        step["answer"].Should().BeNull();
+        step["confidence"].Should().BeNull();
+        step["position"].Should().Be(5);
+        step["trackPosition"].Should().Be(2);
+    }
+
+    [TestCaseSource(nameof(StepsOnATrack))]
+    public async Task BroadcastView_WithTheOptIn_ShowsAQuestionOrRouteOnATrack(
+        JunctionRunKind kind,
+        string eventType
+    )
+    {
+        var executor = await BuildAsync(
+            g => g.AllowJunctionAnswersForBroadcastSubscribers(),
+            Broadcast<IPublicTrain>(anonymous: true)
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), Anonymous());
+
+        var received = await sub.NextAsync(() =>
+            Handle(QuestionOnTrack(typeof(IPublicTrain).FullName!, kind, eventType))
+        );
+
+        var step = Step(received);
+        step["name"].Should().Be("Region");
+        step["nameWithheld"].Should().Be(false);
+        step["questionKey"].Should().Be("Region");
+        step["answer"].Should().Be("North");
+        step["confidence"].Should().Be(0.7);
+    }
+
+    [TestCaseSource(nameof(StepsOnATrack))]
+    public async Task OperationsView_ShowsAQuestionOrRouteOnATrack(
+        JunctionRunKind kind,
+        string eventType
+    )
+    {
+        var executor = await BuildAsync(g =>
+            g.ExposeOperationQueries().GateOperations(roles: "Admin")
+        );
+        await using var sub = await SubscribeAsync(executor, OnJunctionEvent(Run), User("Admin"));
+
+        var received = await sub.NextAsync(() =>
+            Handle(QuestionOnTrack("Some.Train", kind, eventType))
+        );
+
+        var step = Step(received);
+        step["name"].Should().Be("Region");
+        step["nameWithheld"].Should().Be(false);
+        step["questionKey"].Should().Be("Region");
+        step["answer"].Should().Be("North");
+        step["confidence"].Should().Be(0.7);
+    }
+
+    [TestCase(JunctionRunKind.Choice)]
+    [TestCase(JunctionRunKind.Route)]
+    public void RecordedStep_QuestionOrRouteOnATrack_KeepsWhatTheRunRecorded(JunctionRunKind kind)
+    {
+        // operations.junctionRuns reads rows through JunctionStep.From: the operations view is
+        // shown everything the run did not withhold itself.
+        var step = JunctionStep.From(
+            new JunctionRun
+            {
+                Position = 5,
+                Kind = kind,
+                Name = "Region",
+                State = JunctionRunState.Completed,
+                StartedAt = DateTime.UtcNow,
+                QuestionKey = "Region",
+                Answer = "North",
+                Confidence = 0.7,
+                TrackPosition = 2,
+            }
+        );
+
+        step.OnATrack.Should().BeTrue();
+        step.Name.Should().Be("Region");
+        step.NameWithheld.Should().BeFalse();
+        step.QuestionKey.Should().Be("Region");
+        step.Answer.Should().Be("North");
+        step.Confidence.Should().Be(0.7);
+    }
+
     [Test]
     public async Task NameTheRunWithheld_IsWithheldEvenInTheOperationsView()
     {
@@ -626,6 +738,28 @@ public class JunctionEventSubscriptionTests
                 State: JunctionRunState.InProgress,
                 StartedAt: DateTime.UtcNow,
                 NameWithheld: nameWithheld,
+                TrackPosition: 2
+            )
+        );
+
+    private static TrainLifecycleEventMessage QuestionOnTrack(
+        string train,
+        JunctionRunKind kind,
+        string eventType
+    ) =>
+        Message(
+            train,
+            Run,
+            eventType,
+            new JunctionEventPayload(
+                Position: 5,
+                Kind: kind,
+                Name: "Region",
+                State: JunctionRunState.Completed,
+                StartedAt: DateTime.UtcNow,
+                QuestionKey: "Region",
+                Answer: "North",
+                Confidence: 0.7,
                 TrackPosition: 2
             )
         );

@@ -53,15 +53,30 @@ type name, and a failure's exception type unless it is a `TrainException`.
 much about a run as its output, and a broadcast subscriber is anyone the train's posture admits, so
 a default that published it would be an open default; SignalR's junction payload makes the same
 choice (`WithJunctionAnswers()`). The subscriber still sees that a question was asked, its key and
-the step that followed. The operations view always sees answers, and an answer to a
+the step that followed, for a question asked before any track (below for one after). The operations view always sees answers, and an answer to a
 `[TraxSensitive]` question is never present for anyone, live or recorded, opt-in or not.
 
 **Names on a decision track are answers too.** Which junctions ran after a `Switch` tells which
-track it took, so withholding the answer alone hides nothing. Without the opt-in a broadcast
-subscriber sees a junction that has a `trackPosition` (one after any routing step) named
-`(withheld)`, with `nameWithheld` set. Trax.Core reports where a track starts but not where it
-rejoins the chain, so every junction after a route counts as on its track: fail-closed, at the cost
-of hiding the names of junctions that in fact run on every track. A name the run itself withheld,
+track it took, and so does which question a track asked next or which route it took, so withholding
+the answer alone hides nothing. Without the opt-in a broadcast subscriber sees every step that has a
+`trackPosition` (any step after a routing step, whatever its kind: a junction, a question or a further
+route) named `(withheld)`, with `nameWithheld` set, and with no `questionKey`, `answer` or
+`confidence`. The Api applies this to every kind itself rather than relying on the payload: a host
+whose Trax.Effect does not mark questions and routes with a `trackPosition` gets nothing withheld
+from them, and one that does gets them withheld here whatever else the payload holds. Trax.Core
+reports where a track starts but not where it rejoins the chain, so every step after a route counts
+as on its track: fail-closed, at the cost of hiding the names of steps that in fact run on every
+track.
+
+**What a broadcast subscriber still sees on a track is the shape of the run.** It receives each step
+on a track, with its kind, position, state, timing and failure class, but nothing that names it.
+Where the tracks of a routing step differ in how many steps they run, or how long those take, that
+shape distinguishes them. This is accepted: the subscriber is one the train's posture admits to
+the run's progress, and progress is what the feed is for. A host for which the shape of a track is
+itself as sensitive as its answer should keep the train off broadcast and follow its runs through the
+operations view. Not sending a broadcast subscriber any step after a route was considered: it hides
+the shape, but a run then goes silent at its first routing step until its train event arrives, which
+is most of a routed run, and the opt-in would be needed for progress at all. A name the run itself withheld,
 after a `[TraxSensitive]` route, stays withheld in every view, live and recorded, through
 `JunctionStep.From`, which the dashboard's timeline uses as well.
 
@@ -77,6 +92,8 @@ the event and hands it to the in-memory topic, waiting at most 250ms in all for 
 the send. A step that cannot be published in time is dropped and its number skipped, so every
 subscriber sees the loss as a jump in `sequence`, exactly as it sees a loss its own buffer caused
 (0032). Blocking the run instead would let one slow subscriber stall every junction on the host.
+A send still running when the bound expires, or when the run is cancelled, keeps its number whether
+or not it arrives, so no later step is ever sent under the same one.
 
 ## Exemplars
 
@@ -84,11 +101,13 @@ subscriber sees the loss as a jump in `sequence`, exactly as it sees a loss its 
   a broadcast subscriber receives none of a train it cannot see and no host detail of one it can,
   only the subscribed run's steps arrive, a withheld answer stays null, a train that is not
   broadcast publishes nothing, `metadataId` is required, and a broadcast subscriber sees answers
-  only with the host's opt-in while the operations view always does, the names of junctions on a
-  track are withheld from it by default, a name the run withheld stays withheld in every view, and
+  only with the host's opt-in while the operations view always does, the name, question key and
+  answer of every step on a track, of every kind, are withheld from it by default while the
+  operations view and the recorded timeline keep them, a name the run withheld stays withheld in every view, and
   an id that is not positive is refused.
 - `JunctionEventPublishBoundTests` pins the bound: a blocked send returns within it, and the
-  next step shows the dropped one as a gap.
+  next step shows the dropped one as a gap; a send left running when the caller cancels keeps its
+  number, so the next step never reuses it.
 - `JunctionEventsE2ETests` holds it end to end with a real run over a real socket: a secret in the
   train's input, output and failure message reaches no subscriber and no timeline read, the
   sensitive answer is absent everywhere, and `operations.junctionRuns` is denied exactly when
@@ -100,6 +119,7 @@ before; that is the client's half.
 
 ## Changelog
 
+- **2026-10-02**: Questions and routes on a track withheld as its junctions are; the shape of a track named as what remains visible.
 - **2026-10-02**: Track junction names withheld with answers; ids must be positive; publish bounded.
 - **2026-10-02**: Answers withheld from broadcast subscribers unless the host opts in.
 - **2026-10-02**: Recorded.

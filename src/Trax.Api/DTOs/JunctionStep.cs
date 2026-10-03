@@ -32,12 +32,12 @@ namespace Trax.Api.DTOs;
 /// <param name="AnswerWithheld">True when the question is about a <c>[TraxSensitive]</c> type, so its answer and confidence are absent.</param>
 /// <param name="Attempt">Which attempt of its manifest the run is, or <c>null</c> for a run with no manifest.</param>
 /// <param name="NameWithheld">
-/// True when <paramref name="Name"/> is <c>(withheld)</c>: the junction runs on a decision track,
-/// and its name would give away an answer this caller is not shown.
+/// True when <paramref name="Name"/> is <c>(withheld)</c>: the step is on a decision track, and its
+/// name would give away an answer this caller is not shown.
 /// </param>
 /// <param name="TrackPosition">
-/// For a junction, the position of the latest routing step before it, or <c>null</c> before any.
-/// Every junction after a route counts as on its track.
+/// The position of the latest routing step before this one, or <c>null</c> before any. Every step
+/// after a route, a junction, a question or a further route, counts as on its track.
 /// </param>
 public sealed record JunctionStep(
     int Position,
@@ -71,8 +71,22 @@ public sealed record JunctionStep(
             NameWithheld = true,
         };
 
-    /// <summary>Whether this is a junction that ran on a decision track.</summary>
-    public bool OnATrack => Kind == JunctionRunKind.Junction && TrackPosition is not null;
+    /// <summary>
+    /// This step as a caller not shown the run's answers sees it on a decision track: its name,
+    /// question key, answer and confidence withheld, since each of them can tell which track ran.
+    /// </summary>
+    public JunctionStep WithTrackWithheld() =>
+        WithNameWithheld() with
+        {
+            QuestionKey = null,
+            Answer = null,
+            Confidence = null,
+        };
+
+    /// <summary>
+    /// Whether this step is on a decision track: any step, of any kind, after a routing step.
+    /// </summary>
+    public bool OnATrack => TrackPosition is not null;
 
     /// <summary>The step a live junction event carries.</summary>
     /// <param name="payload">The event's junction payload.</param>
