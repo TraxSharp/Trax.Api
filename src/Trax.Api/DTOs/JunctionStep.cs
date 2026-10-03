@@ -75,7 +75,7 @@ public sealed record JunctionStep(
     /// This step as a caller not shown the run's answers sees it on a decision track: its name,
     /// question key, answer and confidence withheld, since each of them can tell which track ran.
     /// </summary>
-    public JunctionStep WithTrackWithheld() =>
+    internal JunctionStep WithTrackWithheld() =>
         WithNameWithheld() with
         {
             QuestionKey = null,
