@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Text.Json.Nodes;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate;
 using HotChocolate.Execution;
 using HotChocolate.Types;

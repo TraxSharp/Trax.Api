@@ -1,5 +1,5 @@
 using System.Net;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Execution.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Trax.Api.GraphQL.Client;

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate;
 using Trax.Api.Exceptions;
 using Trax.Api.GraphQL.Errors;

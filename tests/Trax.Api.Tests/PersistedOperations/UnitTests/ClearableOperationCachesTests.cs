@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Language;
 using Trax.Api.GraphQL.PersistedOperations.Storage;
 

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate;
 using HotChocolate.Authorization;
 using HotChocolate.Execution;

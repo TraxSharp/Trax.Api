@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
 using Microsoft.AspNetCore.Authentication;

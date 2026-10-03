@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using LanguageExt;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Execution;
 using LanguageExt;
 using Microsoft.Extensions.DependencyInjection;

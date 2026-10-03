@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +51,7 @@ public class TrainAuthorizationServiceTests
     /// Asserts the call throws <see cref="TrainAuthorizationException"/> with the
     /// canonical public message. The caller's <paramref name="reasonPattern"/> is matched
     /// against <see cref="TrainAuthorizationException.Reason"/> (which the filter strips
-    /// before forwarding). Supports FluentAssertions wildcard syntax.
+    /// before forwarding). Supports AwesomeAssertions wildcard syntax.
     /// </summary>
     private static async Task AssertDeniedWithReason(Func<Task> act, string reasonPattern)
     {

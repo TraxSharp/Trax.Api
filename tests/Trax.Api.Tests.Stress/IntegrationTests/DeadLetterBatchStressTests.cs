@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Trax.Api.GraphQL.Mutations;
 using Trax.Api.Tests.Stress.Fixtures;

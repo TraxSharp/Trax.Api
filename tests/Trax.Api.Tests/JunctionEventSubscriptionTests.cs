@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Execution;
 using HotChocolate.Subscriptions;
 using Microsoft.EntityFrameworkCore;

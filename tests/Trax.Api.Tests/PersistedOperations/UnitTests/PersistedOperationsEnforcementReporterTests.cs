@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using Trax.Api.GraphQL.PersistedOperations.Configuration;
 using Trax.Api.GraphQL.PersistedOperations.Startup;

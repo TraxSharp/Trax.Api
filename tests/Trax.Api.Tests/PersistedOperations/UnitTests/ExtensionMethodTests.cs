@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Execution;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Execution;
 using HotChocolate.Subscriptions;
 using NSubstitute;

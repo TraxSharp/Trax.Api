@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate;
 using HotChocolate.Execution;
 using HotChocolate.Subscriptions;

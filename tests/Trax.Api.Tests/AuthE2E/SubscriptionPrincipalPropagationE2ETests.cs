@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Hosting;
 using static Trax.Api.Tests.AuthE2E.AuthE2EHost;

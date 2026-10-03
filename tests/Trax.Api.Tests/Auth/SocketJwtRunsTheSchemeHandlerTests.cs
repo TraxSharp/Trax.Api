@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using System.Text;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Subscriptions;
 using HotChocolate.AspNetCore.Subscriptions.Protocols;

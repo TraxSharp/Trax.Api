@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using HotChocolate.Language;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
