@@ -68,7 +68,8 @@ internal sealed class LifecycleEventPublisher
     /// had is skipped, so every subscription reports the loss through its <c>sequence</c> as it
     /// reports one its own buffer caused. A send that is still running when the bound expires is
     /// left to finish on its own and keeps its number: if it arrives the subscription sees it, and
-    /// if it never does the next event shows the gap. A send that throws uses no number.
+    /// if it never does the next event shows the gap. The same holds for a send still running when
+    /// <paramref name="ct"/> is cancelled, which then throws. A send that throws uses no number.
     /// </remarks>
     public ValueTask PublishAsync(
         string topic,
@@ -100,33 +101,32 @@ internal sealed class LifecycleEventPublisher
 
         // Numbers given up by dropped events are used here, so the jump past them is a gap.
         var skipped = Interlocked.Exchange(ref sequence.Dropped, 0);
+        Task? send = null;
+        long next = 0;
         try
         {
-            var next = sequence.Last + skipped + 1;
-            var send = _sender.SendAsync(topic, numbered(next), ct).AsTask();
+            next = sequence.Last + skipped + 1;
+            send = _sender.SendAsync(topic, numbered(next), ct).AsTask();
             if (bound is { } sendLimit)
             {
                 var remaining = sendLimit - Stopwatch.GetElapsedTime(started);
-                try
-                {
-                    await send.WaitAsync(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, ct)
-                        .ConfigureAwait(false);
-                }
-                catch (TimeoutException)
-                {
-                    // Left running: its number is taken whether or not it arrives.
-                    sequence.Last = next;
-                    _ = send.ContinueWith(
-                        t => _ = t.Exception,
-                        TaskContinuationOptions.OnlyOnFaulted
-                    );
-                    return;
-                }
+                await send.WaitAsync(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, ct)
+                    .ConfigureAwait(false);
             }
             else
                 await send.ConfigureAwait(false);
 
             sequence.Last = next;
+        }
+        catch (Exception ex) when (send is { IsFaulted: false, IsCanceled: false })
+        {
+            // The bound expired or the caller cancelled while the send was still running (or as it
+            // finished). It is left to finish, and its number is taken whether or not it arrives, so
+            // no later event can be sent under the same number.
+            sequence.Last = next;
+            _ = send.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            if (ex is not TimeoutException)
+                throw;
         }
         catch
         {

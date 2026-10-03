@@ -83,6 +83,39 @@ public class JunctionEventPublishBoundTests
         (await ReadAsync([delivered])).Should().Equal([2L], "the drop shows as a skip");
     }
 
+    [Test]
+    public async Task ASendLeftRunningWhenTheCallerCancels_KeepsItsNumber()
+    {
+        var sender = new BlockingSender(blockFirst: 1);
+        var publisher = LifecycleEventPublisher.For(sender);
+
+        using var cancel = new CancellationTokenSource();
+        var cancelled = publisher
+            .PublishAsync(Topic, Event(0), TimeSpan.FromSeconds(30), cancel.Token)
+            .AsTask();
+        await sender.FirstSendStarted;
+        cancel.Cancel();
+
+        await FluentActions
+            .Awaiting(() => cancelled)
+            .Should()
+            .ThrowAsync<OperationCanceledException>();
+
+        (await publisher.LastPublishedAsync(Topic, default))
+            .Should()
+            .Be(1, "the send may still arrive numbered 1");
+
+        await publisher.PublishAsync(Topic, Event(1), TimeSpan.FromSeconds(1), default);
+
+        sender
+            .Delivered.Single()
+            .PublishSequence.Should()
+            .Be(
+                2,
+                "a number a send left running may still arrive under is never reused, per " + Adr
+            );
+    }
+
     private static async Task<List<long>> ReadAsync(IEnumerable<JunctionEvent> events)
     {
         var delivered = new List<long>();
